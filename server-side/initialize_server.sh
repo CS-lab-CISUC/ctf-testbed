@@ -133,10 +133,10 @@ setup_routes_firewall_network(){
 
   # Configuring firewall rules
   echo "Configuring firewall rules..."
+  sudo iptables -P FORWARD DROP  # REJECT by default
   sudo iptables -A INPUT -p udp --dport 1194 -j ACCEPT
   sudo iptables -A FORWARD -s $SERVER_IP/24 -j ACCEPT
 
-  # cria VIFs, falta definir IPs
   /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='setup' --vm_prefix=$TEAM_VM_PREFIX --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":'$TEAMS_COUNT',"pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-setup.txt
   content=$(cat $INITIAL_DIR/tmp/temp_new_network.txt)
   NETWORK_UUID=$(echo "$content" | jq -r '.network_id')
@@ -199,14 +199,37 @@ EOF
     # script that will be executed when VPN client connects, to establish the routes (on the VPN client side)
     cat > $team_folder/$username-add_routes.sh <<EOF
 #!/bin/bash
-# ip route add default via $client_ip dev tun0
-ip route add $SERVER_HOST_IP via $client_ip
-ip route add $subnet_ch_w_mask via $client_ip
+OS=\$(uname -s 2>/dev/null || echo "Windows")
+
+case "\$OS" in
+    Linux)
+        echo "Detected OS: Linux"
+        # ip route add default via $client_ip dev tun0
+        ip route add $SERVER_HOST_IP via $client_ip
+        ip route add $subnet_ch_w_mask via $client_ip
+        ;;
+    Darwin)
+        echo "Detected OS: macOS"
+        # sudo route -n add default $client_ip
+        /sbin/route -n add $SERVER_HOST_IP $client_ip
+        /sbin/route -n add $subnet_ch_w_mask $client_ip
+        ;;
+    MINGW*|CYGWIN*|MSYS*|Windows)
+        echo "Detected OS: Windows"
+        # netsh interface ipv4 add route 0.0.0.0/0 $client_ip
+        netsh interface ipv4 add route $SERVER_HOST_IP $client_ip
+        netsh interface ipv4 add route $subnet_ch_w_mask $client_ip
+        ;;
+    *)
+        echo "Unsupported OS: \$OS"
+        exit 1
+        ;;
+esac
 EOF
     chmod +x $team_folder/$username-add_routes.sh
 
     # Storing user details in the database
-    sqlite3 $DB_FILE "INSERT INTO users (username, config) VALUES ('$username', '$team_folder/$username.ovpn');"
+#    sqlite3 $DB_FILE "INSERT INTO users (username, config) VALUES ('$username', '$team_folder/$username.ovpn');"
     echo "User $username successfully created!"
 }
 
@@ -248,19 +271,25 @@ EOF
         local o_subnet_ch="$o_subnet_ch_base.0"
         local o_subnet_ch_w_mask="$o_subnet_ch/24"
 
-        sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -d "$o_subnet_vpn_clients/16" -j REJECT
-        sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -d "$o_subnet_ch/16" -j REJECT
+        # NOTE: this is not strictly necessary, as iptables policy is drop; however, this overwrites
+        # other range IPs that could be accessible through $SERVER_OUT_INTERFACE
+        sudo iptables -I FORWARD 1 -s $subnet_vpn_clients_w_mask -d "$o_subnet_vpn_clients/16" -j REJECT
+        # sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -d "$o_subnet_ch/16" -j REJECT # /16 covers 10.X.0.0 and 10.X.1.0
 
-        sudo iptables -A FORWARD -s $subnet_ch_w_mask -d "$o_subnet_vpn_clients/16" -j REJECT
-        sudo iptables -A FORWARD -s $subnet_ch_w_mask -d "$o_subnet_ch/16" -j REJECT
+        sudo iptables -I FORWARD 1 -s $subnet_ch_w_mask -d "$o_subnet_vpn_clients/16" -j REJECT
+        # sudo iptables -A FORWARD -s $subnet_ch_w_mask -d "$o_subnet_ch/16" -j REJECT  # /16 covers 10.X.0.0 and 10.X.1.0
     done
 
     # Set iptables for VPN clients subnet and outbound traffic
-    sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -j ACCEPT #  -d $subnet_ch_w_mask
+    sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -d $subnet_ch_w_mask -j ACCEPT #  FORWARD subnet team VMs
+    sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -o $SERVER_OUT_INTERFACE -j ACCEPT #  FORWARD exterior
+    sudo iptables -A FORWARD -i $SERVER_OUT_INTERFACE -d $subnet_vpn_clients_w_mask -m state --state ESTABLISHED,RELATED -j ACCEPT  # allow return
     sudo iptables -t nat -A POSTROUTING -s $subnet_vpn_clients_w_mask -o $SERVER_OUT_INTERFACE -j MASQUERADE
 
     # Set iptables for team subnet and outbound traffic
-    sudo iptables -A FORWARD -s $subnet_ch_w_mask -j ACCEPT # -d $subnet_vpn_clients_w_mask
+    sudo iptables -A FORWARD -s $subnet_ch_w_mask -d $subnet_vpn_clients_w_mask -j ACCEPT # FORWARD subnet team VPN clients
+    sudo iptables -A FORWARD -s $subnet_ch_w_mask -o $SERVER_OUT_INTERFACE -j ACCEPT # FORWWARD exterior
+    sudo iptables -A FORWARD -i $SERVER_OUT_INTERFACE -d $subnet_ch_w_mask -m state --state ESTABLISHED,RELATED -j ACCEPT  # allow return
     sudo iptables -t nat -A POSTROUTING -s $subnet_ch_w_mask -o $SERVER_OUT_INTERFACE -j MASQUERADE
 
     # defining IPs; this assumes a static approach, where the interface name for the teams is > enX0
@@ -300,7 +329,7 @@ EOF
 setup_teams(){
   # Creating a database for VPN users
   echo "Creating user database..."
-  sqlite3 $DB_FILE "CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, config TEXT);"
+#  sqlite3 $DB_FILE "CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, config TEXT);"
 
   # Creating teams
   echo "Creating teams"
@@ -313,8 +342,8 @@ setup_teams(){
 
 setup_team_rules(){
   # Creating a database for VPN users
-  echo "Creating user database..."
-  sqlite3 $DB_FILE "CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, config TEXT);"
+#  echo "Creating user database..."
+#  sqlite3 $DB_FILE "CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, config TEXT);"
 
   # Creating team vms
   echo "Creating teams rules"
@@ -338,7 +367,7 @@ setup_team_vms(){
 # ----------------------------------------------
 # Enable & start OpenVPN server
 # ----------------------------------------------
-start(){
+start_openvpn(){
   # Starting and enabling OpenVPN service
   echo "Starting OpenVPN service"
   sudo systemctl enable openvpn@server
@@ -367,8 +396,8 @@ if [ "$flag_used" = false ]; then
   setup_openvpn
   setup_routes_firewall_network
   setup_team_rules
+  start_openvpn
   setup_team_vms
-  start
 fi
 
 echo "Script finished"
