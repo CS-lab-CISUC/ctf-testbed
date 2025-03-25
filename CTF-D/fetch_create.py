@@ -1,8 +1,16 @@
 import requests
 import os
 from dotenv import load_dotenv
+import json
 
 def fetch_challenges(session, url):
+    try:
+        with open("config.json", "r") as f:
+            config_data = json.load(f)
+    except FileNotFoundError:
+        print("⚠️ Ficheiro config.json não encontrado. UUIDs não serão carregados.")
+        config_data = {}
+
     response = session.get(f"{url}/challenges")
     if response.status_code != 200:
         print("Erro ao obter challenges:", response.text)
@@ -43,6 +51,9 @@ def fetch_challenges(session, url):
 
         file_paths = [f["location"] for f in files] if files else []
 
+        template_uuid = config_data.get(name, {}).get("template_uuid")
+        network_uuid = config_data.get(name, {}).get("network_uuid")
+
         print(f"\n--- Challenge ID {ch_id} ---")
         print(f"Nome: {name}")
         print(f"Categoria: {category}")
@@ -56,10 +67,9 @@ def fetch_challenges(session, url):
         print(f"Flag: {flag}")
         print(f"Tipo da Flag: {flag_type}")
         print(f"Ficheiros: {file_paths if file_paths else 'Nenhum'}")
-        print(f"Template UUID: {challenge_data.get('template_uuid')}")
-        print(f"Network UUID: {challenge_data.get('network_uuid')}")
+        print(f"Template UUID (via config): {template_uuid}")
+        print(f"Network UUID (via config): {network_uuid}")
 
-                
         challenge_info = {
             "name": name,
             "category": category,
@@ -73,8 +83,8 @@ def fetch_challenges(session, url):
             "flag": flag,
             "flag_type": flag_type,
             "file_paths": file_paths,
-            "template_uuid": challenge_data.get("template_uuid"),
-            "network_uuid": challenge_data.get("network_uuid")
+            "template_uuid": template_uuid,
+            "network_uuid": network_uuid
         }
         all_challenges.append(challenge_info)
 
@@ -111,9 +121,9 @@ def main():
 
     all_challenges = fetch_challenges(session, url)
     total_teams = fetch_teams(session, url)
-
+    challenges_with_vm = [ch for ch in all_challenges if ch.get("template_uuid") is not None]
     payload = {
-        "challenges": all_challenges,
+        "challenges": challenges_with_vm,
         "num_teams": total_teams
     }
 
