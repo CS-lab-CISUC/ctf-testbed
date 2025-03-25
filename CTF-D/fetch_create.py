@@ -116,7 +116,7 @@ def main():
     if vm_challenges:
         try:
             flask_response = requests.post(
-                "http://localhost:5000/create-vms",
+                "http://127.0.0.1:5000/create-vms",
                 json=vm_challenges
             )
             if flask_response.status_code == 200:
