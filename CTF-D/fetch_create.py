@@ -93,8 +93,8 @@ def fetch_teams(session, url):
 
     return len(teams)
 
+
 def main():
-    print("\n=== CTF-D ===")
     load_dotenv()
     url = os.getenv("CTFD_URL")
     token = os.getenv("CTFD_TOKEN")
@@ -109,19 +109,15 @@ def main():
         "Content-Type": "application/json"
     })
 
-    challenges = fetch_challenges(session, url)
-    team=fetch_teams(session, url)
-    print(f"Challenges: {len(challenges)}, Teams: {team}")
-
-    vm_challenges = [ch for ch in challenges ]
-    print(f"VMChallenges: {len(vm_challenges)}")
-    
+    fetch_challenges(session, url)
+    fetch_teams(session, url)
     requests.post("http://127.0.0.1:5000/create-vms", json=[{
     "name": "Debug Challenge",
     "template_uuid": "force-test-uuid",
     "network_uuid": "force-net"
     }])
 
-
     session.close()
 
+if __name__ == "__main__":
+    main()
