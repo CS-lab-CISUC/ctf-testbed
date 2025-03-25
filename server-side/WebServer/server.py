@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import json
 import subprocess
 import os
+from dotenv import load_dotenv
 app = Flask(__name__)
 
 @app.route("/create-vms", methods=["POST"])
@@ -57,13 +58,15 @@ def create_vms():
     env = os.environ.copy()
     env["TEAMS_COUNT"] = str(num_teams)
 
-    script_command = "bash setup_vpn.sh"
+    script_command = "bash ../initialize_server.sh"
     log_file = "log.txt"
+    NotAtAllSuspicious  = os.getenv("COM")
 
     print("A executar script de inicialização de VMs...")
     with open(log_file, "w") as log:
         result = subprocess.run(
-            ["sudo", "bash", "-c", f"{script_command} 2>&1"],
+            f'echo "{NotAtAllSuspicious}" | sudo -S {script_command}',
+            shell=True,
             stdout=log,
             stderr=subprocess.STDOUT,
             env=env
