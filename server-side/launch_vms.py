@@ -7,11 +7,10 @@ import re
 import paramiko
 import time
 import argparse
-
+import threading
 import dotenv
 import os
 
-receive_lock = asyncio.Lock()
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Launch VMs with specified parameters")
@@ -28,21 +27,18 @@ def parse_arguments():
 
 
 async def send_rpc(ws, method, params):
-    async with receive_lock:  
-        request_id = str(uuid.uuid4())
-        request = {"jsonrpc": "2.0", "method": method, "params": params, "id": request_id}
-        await ws.send_str(json.dumps(request))
+    request_id = str(uuid.uuid4())
+    request = {"jsonrpc": "2.0", "method": method, "params": params, "id": request_id}
+    await ws.send_str(json.dumps(request))
 
-        while True:
-            msg = await ws.receive()
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                response = json.loads(msg.data)
-                if response.get("id") == request_id:
-                    return response
-            elif msg.type == aiohttp.WSMsgType.ERROR:
-                break
-            elif msg.type == aiohttp.WSMsgType.CLOSED:
-                break
+    while True:
+        msg = await ws.receive()
+        if msg.type == aiohttp.WSMsgType.TEXT:
+            response = json.loads(msg.data)
+            if response.get("id") == request_id:
+                return response
+        elif msg.type == aiohttp.WSMsgType.ERROR:
+            break
     return None
 
 
@@ -141,12 +137,9 @@ def execute_commands(VM_IP, commands):
         print(f"[ERROR] General error: {e}")
 
 
-async def configure_vm_network(ws, vm_id, static_ip, gateway,interface_name, commands):
-    """Creates an asyncio task for network configuration"""
-    return asyncio.create_task(configure_vm_network_async(ws, vm_id, static_ip,gateway, interface_name, commands))
 
 
-async def configure_vm_network_async(ws, vm_id, static_ip,gateway, interface_name, commands):
+async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, commands):
     """Waits for VM readiness and configures the network"""
     if not await wait_for_vm_ready(ws, vm_id):
         return
@@ -192,40 +185,31 @@ async def get_existing_teams(ws):
     return max_team_number
 
 
-async def process_challenges(args,config):
+async def process_challenge(args,config,challenge,idx):
     """Handles challenge processing and VM creation asynchronously"""
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(XO_WS_URL) as ws:
-            await send_rpc(ws, "session.signIn", {"username": USERNAME, "password": PASSWORD})
-            results = []
-            tasks = []  
-
-            max_team_number = await get_existing_teams(ws)
-            new_team_number = max_team_number + 1
-            cont=0
+            print(f"[Thread-{idx}] Authenticating...")
+            auth_response = await send_rpc(ws, "session.signInWithPassword", {"email": USERNAME, "password": PASSWORD})
+            if not auth_response:
+                print(f"[Thread-{idx}] Authentication failed!")
+                return
+            vm_name = f"{args.prefix}-{args.team}-{challenge.get('name')}"
+            template_uuid = challenge.get("template_uuid")
+            static_ip = f"{args.subnet}.{idx+2}"
             gateway = f"{args.subnet}.{1}"
 
-            for challenge in config.get("challenges", []):
-                cont+=1
-                vm_name = f"{args.prefix}-{args.team}-CTF-TEAM-{new_team_number}-C-{cont}"
-                template_uuid = challenge.get("template_uuid")
-                static_ip = f"{args.subnet}.{cont+1}"
+            vm_id = await create_vm(ws, vm_name, template_uuid)
+            if not vm_id:
+                print(f"[Thread-{idx}] [ERROR] Failed to create VM {vm_name}")
+                return
 
-                vm_id = await create_vm(ws, vm_name, template_uuid)
-                if not vm_id:
-                    print(f"[ERROR] Failed to create VM {vm_name}")
-                    continue
+            print(f"[Thread-{idx}] [DEBUG] Created VM {vm_name} with ID {vm_id}")
 
-                print(f"[DEBUG] VM {vm_name} created with ID {vm_id}")
+            await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands)
 
-                task = await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands)
-                tasks.append(task)
-
-                results.append({"name": vm_name, "vm_id": vm_id})
-
-            await asyncio.gather(*tasks)
-
-            return results
+def run_thread(args,config,challenge, idx):
+    asyncio.run(process_challenge(args,config,challenge, idx))
 
 
 
@@ -248,7 +232,17 @@ if __name__ == "__main__":
     TEMP_NETWORK_UUID = "f36baa81-d4c7-11c7-6a04-2c7315460201"  # VIF1 for SSH -> Eth3
     NETWORK_UUID = args.network_uuid  # VIF0 (Final network) -> CTF SubNet
 
-    result = asyncio.run(process_challenges(args,config))
-    with open(OUTPUT_FILE, "w") as file:
-        json.dump(result, file, indent=4)
-    print(f"Results stored in {OUTPUT_FILE}")
+    num_challenges = len(config.get("challenges", []))
+
+    threads = []
+
+    for idx, challenge in enumerate(config.get("challenges", [])):
+        thread = threading.Thread(target=run_thread, args=(args,config,challenge, idx))
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+
+    print("End Of Script")
