@@ -109,13 +109,16 @@ def main():
         "Content-Type": "application/json"
     })
 
-    fetch_challenges(session, url)
-    fetch_teams(session, url)
-    requests.post("http://127.0.0.1:5000/create-vms", json=[{
-    "name": "Debug Challenge",
-    "template_uuid": "force-test-uuid",
-    "network_uuid": "force-net"
-    }])
+    all_challenges = fetch_challenges(session, url)
+    total_teams = fetch_teams(session, url)
+
+    payload = {
+        "challenges": all_challenges,
+        "num_teams": total_teams
+    }
+
+    response = requests.post("http://127.0.0.1:5000/create-vms", json=payload)
+    print("\nResposta do servidor Flask:", response.text)
 
     session.close()
 
