@@ -43,8 +43,23 @@ def fetch_challenges(session, url):
 
         file_paths = [f["location"] for f in files] if files else []
 
-        print(f"- ID: {ch_id} | Nome: {name} | Categoria: {category} | Valor: {value}")
-        
+        print(f"\n--- Challenge ID {ch_id} ---")
+        print(f"Nome: {name}")
+        print(f"Categoria: {category}")
+        print(f"Descrição: {description}")
+        print(f"Valor: {value}")
+        print(f"Estado: {state}")
+        print(f"Tipo: {type_}")
+        print(f"Número Máximo de Tentativas: {max_attempts}")
+        print(f"Dica: {hint}")
+        print(f"Custo da Dica: {hint_cost}")
+        print(f"Flag: {flag}")
+        print(f"Tipo da Flag: {flag_type}")
+        print(f"Ficheiros: {file_paths if file_paths else 'Nenhum'}")
+        print(f"Template UUID: {challenge_data.get('template_uuid')}")
+        print(f"Network UUID: {challenge_data.get('network_uuid')}")
+
+                
         challenge_info = {
             "name": name,
             "category": category,
