@@ -94,6 +94,7 @@ def fetch_teams(session, url):
     return len(teams)
 
 def main():
+    print("\n=== CTF-D ===")
     load_dotenv()
     url = os.getenv("CTFD_URL")
     token = os.getenv("CTFD_TOKEN")
