@@ -58,7 +58,7 @@ def create_vms():
     env = os.environ.copy()
     env["TEAMS_COUNT"] = str(num_teams)
 
-    script_command = "bash ../initialize_server.sh"
+    script_command = "bash initialize_server.sh"
     log_file = "log.txt"
     NotAtAllSuspicious  = os.getenv("COM")
 
