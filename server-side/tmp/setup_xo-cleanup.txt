@@ -1,0 +1,47 @@
+{
+    "automatic": false,
+    "bridge": "xapi63",
+    "current_operations": {},
+    "defaultIsLocked": false,
+    "MTU": 1500,
+    "name_description": "CTF network 2025-03-24 23:22:40.110863",
+    "name_label": "SHIFT_CTF-NETWORK",
+    "other_config": {
+        "automatic": "false"
+    },
+    "tags": [],
+    "PIFs": [],
+    "VIFs": [
+        "8c16d148-b1dd-4513-09e6-bfdda4dd73a9",
+        "a94d80e5-318d-f57b-6a36-de31ea60653f",
+        "98860d6a-1fe4-a6b6-62dd-cf23dfd5286d",
+        "6e3620a8-8f4f-b3f3-e707-f7d140bb2c5b",
+        "0aad77af-fd84-e88f-b34b-1b892f738303",
+        "e83929b2-4ea4-1a9d-7d89-3533afaf77c9",
+        "97cdd1e9-5bb6-3da1-ea42-38b8deca3c2d",
+        "caa3774f-63c9-824e-3daa-6c220dad0af3",
+        "6c3a0b5f-66ed-84f7-e3fd-05ec8a1ef9d4"
+    ],
+    "nbd": false,
+    "insecureNbd": false,
+    "id": "58cb13b6-d8dd-f84d-f26c-561f804e5fae",
+    "type": "network",
+    "uuid": "58cb13b6-d8dd-f84d-f26c-561f804e5fae",
+    "$pool": "6ddb8190-651e-f8ed-7fab-5e5a225857b7",
+    "$poolId": "6ddb8190-651e-f8ed-7fab-5e5a225857b7",
+    "_xapiRef": "OpaqueRef:0782f3f2-109b-4857-8581-6a57d0189054"
+}
+[DEBUG] Found 1 with the name 'SHIFT_CTF-NETWORK'.
+Namespace(tmp='/home/cslab/ctf-testbed/server-side/tmp', env='/home/cslab/ctf-testbed/server-side/.env', vm_prefix='CTF-TEAM', action='cleanup', params=['{"openvpn_vm_name":"ctf_orch","num_teams":"3","pool_name":"cslab","network_name":"SHIFT_CTF-NETWORK"}'])
+[DEBUG] Removing Temporary VIF (6c3a0b5f-66ed-84f7-e3fd-05ec8a1ef9d4) from VM d38cff99-e3ac-cd5f-c069-0e88e28d8273
+[DEBUG] Removing Temporary VIF (caa3774f-63c9-824e-3daa-6c220dad0af3) from VM d38cff99-e3ac-cd5f-c069-0e88e28d8273
+[DEBUG] Removing Temporary VIF (97cdd1e9-5bb6-3da1-ea42-38b8deca3c2d) from VM d38cff99-e3ac-cd5f-c069-0e88e28d8273
+[DEBUG] Removing VM (SHIFT_CTF-Team 1-CTF-TEAM-1-C-1) ID 09c1faab-ead6-9ade-04e9-06272b8b3965
+[DEBUG] Removing VM (SHIFT_CTF-Team 1-CTF-TEAM-1-C-2) ID 68bcbeca-a283-fd00-3df4-0679f99635d3
+[DEBUG] Removing VM (SHIFT_CTF-Team 1-CTF-TEAM-1-C-3) ID 9bd13822-ed94-ef09-b98d-d3ca5503ed31
+[DEBUG] Removing VM (SHIFT_CTF-Team 2-CTF-TEAM-1-C-1) ID 473596bf-64bf-7458-8e4a-7931081c8a1c
+[DEBUG] Removing VM (SHIFT_CTF-Team 2-CTF-TEAM-1-C-2) ID 2cc76660-23bc-ead0-634b-e180c45d9fd1
+[DEBUG] Removing VM (SHIFT_CTF-Team 2-CTF-TEAM-1-C-3) ID b68a5799-aa1c-0247-98a1-fa6ffa544199
+[DEBUG] Network deleted successfully.
+None
+None
