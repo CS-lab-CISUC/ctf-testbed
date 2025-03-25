@@ -82,7 +82,7 @@ def add_users(url, token):
     # Criação de teams
     teams_data = {
     "Team_3": {
-        "name": "Team 1",
+        "name": "Team 3",
         "password": "joaquimsilvateam",
     },
     "Team_2": {
