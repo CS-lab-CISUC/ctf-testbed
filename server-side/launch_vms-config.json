@@ -2,20 +2,20 @@
     "subnet_base": "192.168",
     "challenges": [
         {
-            "name": "Challenge-1",
-            "description": "Ch-1 | WebServer | Created for Shift CTF! Make the flag (h)appen",
+            "name": "Teste VM1",
+            "description": "Created for Shift CTF! Make the flag (h)appen",
             "template_uuid": "988fb130-5eb2-1a2c-cba2-d41b1dd5f5a6",
             "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba"
         },
         {
-            "name": "Challenge-2",
-            "description": "Ch-2 | WebServer | Created for Shift CTF! Make the flag (h)appen",
+            "name": "Teste VM2",
+            "description": "Created for Shift CTF! Make the flag (h)appen",
             "template_uuid": "988fb130-5eb2-1a2c-cba2-d41b1dd5f5a6",
             "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba"
         },
         {
-            "name": "Challenge-3",
-            "description": "Ch-3 | WebServer | Created for Shift CTF! Make the flag (h)appen",
+            "name": "Teste VM3",
+            "description": "Created for Shift CTF! Make the flag (h)appen",
             "template_uuid": "988fb130-5eb2-1a2c-cba2-d41b1dd5f5a6",
             "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba"
         }
