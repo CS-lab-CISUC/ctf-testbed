@@ -1,6 +1,6 @@
 import requests
 import subprocess
-
+import json
 def add_challenges(url, token):
     counter_challenges_vm = 0
     counter_challenges = 0
@@ -173,6 +173,11 @@ def add_challenges(url, token):
                 #subprocess.run(["ls", "-l"]) #Uso do subprocess.run para fazer a utilização de parâmetros e ser mais simples.
                 #subprocess.run(["pwd"])
                 counter_challenges_vm += 1
+
+
+
+
+            
         else:
             print(f"Erro ao criar challenge '{challenge_name}': {challenge_response.status_code}, {challenge_response.text}")
 
@@ -188,5 +193,26 @@ def add_challenges(url, token):
         with open("info_files.txt", "w") as f:
             f.write(str(files_response.json()))
         '''
+
+        export_config = {
+            challenge_data["name"]: {
+                "category": challenge_data["category"],
+                "description": challenge_data["description"],
+                "value": challenge_data["value"],
+                "state": challenge_data["state"],
+                "type": challenge_data["type"],
+                "max_attempts": challenge_data["max_attempts"],
+                "hint": challenge_data["hint"],
+                "hint_cost": challenge_data["hint_cost"],
+                "flag": challenge_data["flag"],
+                "flag_type": challenge_data["flag_type"],
+                "file_path": challenge_data["file_path"],
+                "template_uuid": challenge_data["template_uuid"],
+                "network_uuid": challenge_data["network_uuid"]
+            }
+            for challenge_data in challenges.values()
+        }
+        with open("config.json", "w") as f:
+            json.dump(export_config, f, indent=4)
 
     return counter_challenges, counter_challenges_vm
