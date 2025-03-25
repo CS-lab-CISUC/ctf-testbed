@@ -50,7 +50,7 @@ def create_vms():
         else:
             print(f"Challenge '{name}' não requer VM.")
 
-    with open("../launch_vms-config.json", "w") as f:
+    with open("launch_vms-config.json", "w") as f:
         json.dump(launch_config, f, indent=4)
 
     print("Ficheiro 'launch_vms-config.json' criado com sucesso!")

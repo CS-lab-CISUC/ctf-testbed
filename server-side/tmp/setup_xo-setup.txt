@@ -1,0 +1,11 @@
+[DEBUG] Pool ID.
+[DEBUG] Creating new network...
+Network id: 4843d32d-b1fc-f62f-ca94-ccbe9fe81ff4
+[DEBUG] Creating VIF on VM d38cff99-e3ac-cd5f-c069-0e88e28d8273
+{'id': 'a5739720-3918-4e4d-9111-5e23d77efd67', 'jsonrpc': '2.0', 'result': 'e191cc1f-5c27-c08f-c6d8-d2bb9bada5f3'}
+[DEBUG] Creating VIF on VM d38cff99-e3ac-cd5f-c069-0e88e28d8273
+{'id': '2f59a059-3b53-4c62-9985-4341770e73bd', 'jsonrpc': '2.0', 'result': 'b6cc5a90-c6fb-9073-0123-8eccfa6e13ab'}
+[DEBUG] Creating VIF on VM d38cff99-e3ac-cd5f-c069-0e88e28d8273
+{'id': '6a7fbf9b-0984-4cd2-83c5-384c2fe5f8b2', 'jsonrpc': '2.0', 'result': '540780a4-6a68-9943-d314-751e1ff8692f'}
+['4843d32d-b1fc-f62f-ca94-ccbe9fe81ff4', ['e191cc1f-5c27-c08f-c6d8-d2bb9bada5f3', 'b6cc5a90-c6fb-9073-0123-8eccfa6e13ab', '540780a4-6a68-9943-d314-751e1ff8692f']]
+['4843d32d-b1fc-f62f-ca94-ccbe9fe81ff4', ['e191cc1f-5c27-c08f-c6d8-d2bb9bada5f3', 'b6cc5a90-c6fb-9073-0123-8eccfa6e13ab', '540780a4-6a68-9943-d314-751e1ff8692f']]
