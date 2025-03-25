@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import json
-
+import subprocess
+import os
 app = Flask(__name__)
 
 @app.route("/create-vms", methods=["POST"])
@@ -53,12 +54,29 @@ def create_vms():
 
     print("Ficheiro 'launch_vms-config.json' criado com sucesso!")
 
-    return jsonify({
-        "status": "Sucesso",
-        "vms_criadas": created_vms,
-        "total_vms": len(created_vms),
-        "total_teams": num_teams
-    })
+    env = os.environ.copy()
+    env["TEAMS_COUNT"] = str(num_teams)
+
+    script_command = "bash setup_vpn.sh"
+    log_file = "log.txt"
+
+    print("A executar script de inicialização de VMs...")
+    with open(log_file, "w") as log:
+        result = subprocess.run(
+            ["sudo", "bash", "-c", f"{script_command} 2>&1"],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            env=env
+        )
+
+    if result.returncode == 0:
+        print("Script terminou com sucesso!")
+        return jsonify({"status": "Funcionou",})
+
+    else:
+        print(f"Script terminou com erro! Código: {result.returncode}")
+        return jsonify({"status": "Ardeu",})
+   
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
