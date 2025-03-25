@@ -32,11 +32,12 @@ def create_vms():
             print(f"Criar VM para challenge '{name}' com template '{template_uuid}' e rede '{network_uuid}'")
 
             launch_config["challenges"].append({
-                "name": f"Challenge-{idx}",
+                "name": name,
                 "description": "Created for Shift CTF! Make the flag (h)appen",
                 "template_uuid": template_uuid,
                 "network_uuid": network_uuid
             })
+
 
             created_vms.append({
                 "challenge": name,
@@ -45,9 +46,9 @@ def create_vms():
                 "status": "VM criada (simulado)"
             })
         else:
-            print(f"ℹ️ Challenge '{name}' não requer VM.")
+            print(f"Challenge '{name}' não requer VM.")
 
-    with open("launch_vms-config.json", "w") as f:
+    with open("../launch_vms-config.json", "w") as f:
         json.dump(launch_config, f, indent=4)
 
     print("Ficheiro 'launch_vms-config.json' criado com sucesso!")
