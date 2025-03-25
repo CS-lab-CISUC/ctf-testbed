@@ -93,7 +93,6 @@ def fetch_teams(session, url):
 
     return len(teams)
 
-
 def main():
     load_dotenv()
     url = os.getenv("CTFD_URL")
@@ -109,10 +108,29 @@ def main():
         "Content-Type": "application/json"
     })
 
-    fetch_challenges(session, url)
+    challenges = fetch_challenges(session, url)
     fetch_teams(session, url)
+
+    vm_challenges = [ch for ch in challenges if ch["template_uuid"] and ch["network_uuid"]]
+
+    if vm_challenges:
+        try:
+            flask_response = requests.post(
+                "http://localhost:5000/create-vms",
+                json=vm_challenges
+            )
+            if flask_response.status_code == 200:
+                print("\n Desafios com VM enviados com sucesso para o servidor Flask.")
+                print("Resposta:")
+                print(flask_response.json())
+            else:
+                print("\n Erro ao enviar para o servidor Flask:")
+                print(flask_response.status_code, flask_response.text)
+        except requests.exceptions.RequestException as e:
+            print("\n Erro de conexão ao servidor Flask:")
+            print(e)
+    else:
+        print("\nℹ Nenhum desafio com VM para enviar.")
 
     session.close()
 
-if __name__ == "__main__":
-    main()
