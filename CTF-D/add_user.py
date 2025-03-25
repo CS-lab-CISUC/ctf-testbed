@@ -25,7 +25,7 @@ def add_users(url, token):
         "banned": False, #Indica se o utilizador está banido
         "fields": [], #Fields adiciona varias opçoes ao user
         "country": "PT", #Country -> abreviatura
-        "team": "Team_1"
+        "team": "Team_3"
     },
     "User_2": {
         "name": "Mario Esteves",
@@ -37,7 +37,7 @@ def add_users(url, token):
         "banned": False,
         "fields": [],
         "country": "PT",
-        "team": "Team_1"
+        "team": "Team_3"
     },
     "User_3": {
         "name": "Jose Antunes",
@@ -81,7 +81,7 @@ def add_users(url, token):
 
     # Criação de teams
     teams_data = {
-    "Team_1": {
+    "Team_3": {
         "name": "Team 1",
         "password": "joaquimsilvateam",
     },
