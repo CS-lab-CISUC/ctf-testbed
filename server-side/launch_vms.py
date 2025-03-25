@@ -88,10 +88,10 @@ async def get_vm_ip(ws, vm_id, max_retries=30, delay=20):
         await asyncio.sleep(delay)
     return None
 
-async def wait_for_ssh(ip, max_retries=20, delay=10):
+async def wait_for_ssh(ip,challenge , max_retries=20, delay=10):
     for attempt in range(1, max_retries + 1):
         try:
-            async with asyncssh.connect(ip, username=SSH_USER, password=SSH_PASSWORD, known_hosts=None) as conn:
+            async with asyncssh.connect(ip, username=challenge.get('user'), password=challenge.get('password'), known_hosts=None) as conn:
                 print(f"[DEBUG] SSH is available on {ip}")
                 return True
         except Exception:
@@ -99,53 +99,66 @@ async def wait_for_ssh(ip, max_retries=20, delay=10):
             await asyncio.sleep(delay)
     return False
 
-def execute_commands(VM_IP, commands):
+def execute_commands(VM_IP, commands, challenge):
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        print(f"[DEBUG] Connecting to {VM_IP} as {SSH_USER}...")
-        ssh.connect(VM_IP, username=SSH_USER, password=SSH_PASSWORD)
+        print(f"[DEBUG] Connecting to {VM_IP} as {challenge.get('user')}...")
+        ssh.connect(VM_IP, username=challenge.get('user'), password=challenge.get('password'))
 
         shell = ssh.invoke_shell()
-        time.sleep(1)  
+        time.sleep(1)
         initial_output = shell.recv(1024).decode()
         print(f"[DEBUG] Initial Shell Output:\n{initial_output}")
 
+        # Run default commands
         for command in commands:
-            print(f"[DEBUG] Executing: {command}")
+            print(f"[DEBUG] Executing default command: {command}")
             shell.send(command + "\n")
-            time.sleep(1)  
+            time.sleep(1)
             output = shell.recv(4096).decode()
             print(f"[DEBUG] Command Output:\n{output}")
 
             if "[sudo] password for" in output:
                 print("[DEBUG] Detected sudo password prompt, entering password...")
-                shell.send(SSH_PASSWORD + "\n")
-                time.sleep(1)  
+                shell.send(challenge.get('password') + "\n")
+                time.sleep(1)
                 output = shell.recv(4096).decode()
                 print(f"[DEBUG] Post-Password Output:\n{output}")
+
+        challenge_commands = challenge.get("commands", [])
+        if isinstance(challenge_commands, list):
+            for command in challenge_commands:
+                print(f"[DEBUG] Executing challenge-specific command: {command}")
+                shell.send(command + "\n")
+                time.sleep(1)
+                output = shell.recv(4096).decode()
+                print(f"[DEBUG] Command Output:\n{output}")
+
+                if "[sudo] password for" in output:
+                    print("[DEBUG] Detected sudo password prompt, entering password...")
+                    shell.send(challenge.get('password') + "\n")
+                    time.sleep(1)
+                    output = shell.recv(4096).decode()
+                    print(f"[DEBUG] Post-Password Output:\n{output}")
 
         ssh.close()
         print(f"[DEBUG] Commands executed successfully!")
 
-    except paramiko.AuthenticationException:
-        print("[ERROR] Authentication failed, please check credentials.")
-    except paramiko.SSHException as sshException:
-        print(f"[ERROR] Unable to establish SSH connection: {sshException}")
     except Exception as e:
-        print(f"[ERROR] General error: {e}")
+        print(f"[ERROR] Failed to execute commands: {e}")
 
 
 
 
-async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, commands):
+async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, commands,challenge):
     """Waits for VM readiness and configures the network"""
     if not await wait_for_vm_ready(ws, vm_id):
         return
 
     temp_ip = await get_vm_ip(ws, vm_id)
-    if not temp_ip or not await wait_for_ssh(temp_ip):
+    if not temp_ip or not await wait_for_ssh(temp_ip,challenge):
         return
 
     
@@ -154,7 +167,7 @@ async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, com
         for cmd in commands
     ]
 
-    execute_commands(temp_ip, formatted_commands)
+    execute_commands(temp_ip, formatted_commands,challenge)
 
     
     response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VIF"}})
@@ -206,7 +219,7 @@ async def process_challenge(args,config,challenge,idx):
 
             print(f"[Thread-{idx}] [DEBUG] Created VM {vm_name} with ID {vm_id}")
 
-            await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands)
+            await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands,challenge)
 
 def run_thread(args,config,challenge, idx):
     asyncio.run(process_challenge(args,config,challenge, idx))

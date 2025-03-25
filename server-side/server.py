@@ -19,7 +19,6 @@ def create_vms():
         return jsonify({"error": "Estrutura inválida"}), 400
 
     print(f"Número de equipas: {num_teams}")
-    created_vms = []
     launch_config = {
         "subnet_base": "192.168",
         "challenges": []
@@ -29,24 +28,25 @@ def create_vms():
         name = challenge.get("name")
         template_uuid = challenge.get("template_uuid")
         network_uuid = challenge.get("network_uuid")
+        user=challenge.get("user")
+        password=challenge.get("pass")
+        commands=challenge.get("commands")
 
         if template_uuid and network_uuid:
             print(f"Criar VM para challenge '{name}' com template '{template_uuid}' e rede '{network_uuid}'")
 
             launch_config["challenges"].append({
                 "name": name,
-                "description": "Created for Shift CTF! Make the flag (h)appen",
-                "template_uuid": template_uuid,
-                "network_uuid": network_uuid
-            })
-
-
-            created_vms.append({
-                "challenge": name,
+                "description": f"Created for Shift CTF| {challenge.get('description')}",
                 "template_uuid": template_uuid,
                 "network_uuid": network_uuid,
-                "status": "VM criada (simulado)"
+                "user": user,
+                "password": password,
+                "commands": commands
             })
+
+
+      
         else:
             print(f"Challenge '{name}' não requer VM.")
 

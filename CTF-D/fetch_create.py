@@ -53,6 +53,10 @@ def fetch_challenges(session, url):
 
         template_uuid = config_data.get(name, {}).get("template_uuid")
         network_uuid = config_data.get(name, {}).get("network_uuid")
+        password = config_data.get(name, {}).get("password")
+        user = config_data.get(name, {}).get("user")
+        commands = config_data.get(name, {}).get("commands")
+
 
         print(f"\n--- Challenge ID {ch_id} ---")
         print(f"Nome: {name}")
@@ -84,7 +88,10 @@ def fetch_challenges(session, url):
             "flag_type": flag_type,
             "file_paths": file_paths,
             "template_uuid": template_uuid,
-            "network_uuid": network_uuid
+            "network_uuid": network_uuid,
+            "password": password,
+            "user": user,
+            "commands": commands
         }
         all_challenges.append(challenge_info)
 
