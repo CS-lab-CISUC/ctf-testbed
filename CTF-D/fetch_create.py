@@ -109,10 +109,12 @@ def main():
     })
 
     challenges = fetch_challenges(session, url)
-    fetch_teams(session, url)
+    team=fetch_teams(session, url)
+    print(f"Challenges: {len(challenges)}, Teams: {team}")
 
     vm_challenges = [ch for ch in challenges ]
-
+    print(f"VMChallenges: {len(vm_challenges)}")
+    
     if vm_challenges:
         try:
             flask_response = requests.post(
