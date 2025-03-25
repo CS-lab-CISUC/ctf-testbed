@@ -116,24 +116,12 @@ def main():
     vm_challenges = [ch for ch in challenges ]
     print(f"VMChallenges: {len(vm_challenges)}")
     
-    if vm_challenges:
-        try:
-            flask_response = requests.post(
-                "http://127.0.0.1:5000/create-vms",
-                json=vm_challenges
-            )
-            if flask_response.status_code == 200:
-                print("\n Desafios com VM enviados com sucesso para o servidor Flask.")
-                print("Resposta:")
-                print(flask_response.json())
-            else:
-                print("\n Erro ao enviar para o servidor Flask:")
-                print(flask_response.status_code, flask_response.text)
-        except requests.exceptions.RequestException as e:
-            print("\n Erro de conexão ao servidor Flask:")
-            print(e)
-    else:
-        print("\nℹ Nenhum desafio com VM para enviar.")
+    requests.post("http://127.0.0.1:5000/create-vms", json=[{
+    "name": "Debug Challenge",
+    "template_uuid": "force-test-uuid",
+    "network_uuid": "force-net"
+    }])
+
 
     session.close()
 
