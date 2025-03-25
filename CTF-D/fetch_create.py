@@ -111,7 +111,7 @@ def main():
     challenges = fetch_challenges(session, url)
     fetch_teams(session, url)
 
-    vm_challenges = [ch for ch in challenges if ch["template_uuid"] and ch["network_uuid"]]
+    vm_challenges = [ch for ch in challenges ]
 
     if vm_challenges:
         try:
