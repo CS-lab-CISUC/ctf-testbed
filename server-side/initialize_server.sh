@@ -355,8 +355,8 @@ setup_team_rules(){
 
 setup_team_vms(){
   # Creating team rules
-  touch "$INITIAL_DIR/tmp/team_setup.log"
-
+  echo "" | sudo tee "$INITIAL_DIR/tmp/team_setup.log" > /dev/null
+  sudo chown cslab:cslab "$INITIAL_DIR/tmp/team_setup.log"
 
   echo "Creating teams vms"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do

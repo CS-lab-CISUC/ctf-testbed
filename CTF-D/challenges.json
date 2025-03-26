@@ -95,9 +95,9 @@
         "commands": null
     },
     "Challenge 6": {
-        "name": "Teste VM1",
+        "name": "Kali-de-Teste",
         "category": "",
-        "description": "Test VM1",
+        "description": "Kali-de-Teste",
         "value": 500,
         "state": "visible",
         "type": "standard",
@@ -114,9 +114,9 @@
         "commands": ["echo 'Hello World'","touch teste.txt"]
     },
     "Challenge 7": {
-        "name": "Teste VM2",
+        "name": "Hard-Challenge Vieira-(Module1)",
         "category": "",
-        "description": "Test VM2",
+        "description": "Vieira Module 1",
         "value": 500,
         "state": "visible",
         "type": "standard",
@@ -126,16 +126,16 @@
         "flag": "Test_Flag",
         "flag_type": "static",
         "file_path": null,
-        "template_uuid": "988fb130-5eb2-1a2c-cba2-d41b1dd5f5a6",
+        "template_uuid": "d69fa8a8-ed04-cc9c-8e18-7ba7735b18ad",
         "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
-        "user":"kali",
-        "password":"kali",
-        "commands": ["echo 'Hello World'","touch teste.txt"]
+        "user":"ctf",
+        "password":"ctf",
+        "commands": ["cd ./hard_challenge_1","./setup_flags_default.sh","docker compose up -d"]
     },
     "Challenge 8": {
-        "name": "Teste VM3",
+        "name": "Hard-Challenge Vieira-(Module2)",
         "category": "",
-        "description": "Test VM3",
+        "description": "Vieira Module 2",
         "value": 500,
         "state": "visible",
         "type": "standard",
@@ -145,10 +145,10 @@
         "flag": "Test_Flag",
         "flag_type": "static",
         "file_path": null,
-        "template_uuid": "988fb130-5eb2-1a2c-cba2-d41b1dd5f5a6",
+        "template_uuid": "d69fa8a8-ed04-cc9c-8e18-7ba7735b18ad",
         "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
-        "user":"kali",
-        "password":"kali",
-        "commands": ["echo 'Hello World'","touch teste.txt"]
+        "user":"ctf",
+        "password":"ctf",
+        "commands": ["cd ./hard_challenge_1","./setup_flags_default.sh","docker compose up -d"]
     }
 }

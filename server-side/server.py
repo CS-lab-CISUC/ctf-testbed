@@ -75,7 +75,7 @@ def create_vms():
     if result.returncode == 0:
         print("Script terminou com sucesso!")
 
-        log_file_path = "/tmp/team_setup.log"
+        log_file_path = "./tmp/team_setup.log"
         teams_data = {}
 
         try:

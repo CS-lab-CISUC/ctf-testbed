@@ -227,7 +227,7 @@ async def process_challenge(args,config,challenge,idx):
 
             print(f"[Thread-{idx}] [DEBUG] Created VM {vm_name} with ID {vm_id}")
             
-            team_key = f"Team{args.team}"
+            team_key = f"{args.team}"
             with lock:
                 team_ips[team_key][challenge.get("name")] = static_ip
 
