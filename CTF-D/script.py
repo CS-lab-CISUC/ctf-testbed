@@ -34,7 +34,7 @@ def add_challenges(url, token,challenges_file="challenges.json"):
 
         challenge_response = s.post(
             f"{url}/challenges", #Post para challenges
-            json={k: v for k, v in challenge_data.items() if k not in ['hint', 'hint_cost', 'flag', 'flag_type', 'file_path', 'template_uuid', 'network_uuid']},
+            json={k: v for k, v in challenge_data.items() if k not in ['hint', 'hint_cost', 'flag', 'flag_type', 'file_path', 'template_uuid', 'network_uuid', 'user', 'password', 'commands']},
             #Json com a data do desafio, ou seja, envia apenas os dados necessários para criação do desafio
             headers={"Content-Type": "application/json"} #header
         )
