@@ -355,7 +355,8 @@ setup_team_rules(){
 
 setup_team_vms(){
   # Creating team rules
-  touch ./tmp/team_setup.log
+  touch "$INITIAL_DIR/tmp/team_setup.log"
+
 
   echo "Creating teams vms"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
