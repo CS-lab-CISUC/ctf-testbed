@@ -272,13 +272,11 @@ if __name__ == "__main__":
 
     print("[DEBUG] team_ips final:", json.dumps(team_ips, indent=2))  # debug obrigatório
 
-    output_path = pathlib.Path("./tmp/team_setup.log")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Guarda os IPs num ficheiro individual por equipa
+    output_path = pathlib.Path(f"./tmp/{args.team.replace(' ', '_').lower()}.json")
+    with open(output_path, "w") as f:
+        json.dump({args.team: team_ips[args.team]}, f)
 
-    with open(output_path, "a") as f:
-        for team, ips in team_ips.items():
-            entry = {team: ips}
-            f.write(json.dumps(entry) + "\n")
 
 
 
