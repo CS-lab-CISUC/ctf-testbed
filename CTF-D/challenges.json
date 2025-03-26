@@ -111,7 +111,7 @@
         "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
         "user":"kali",
         "password":"kali",
-        "commands": ["echo 'Hello World'","touch teste.txt"]
+        "commands": []
     },
     "Challenge 7": {
         "name": "Hard-Challenge Vieira-(Module1)",
