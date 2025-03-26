@@ -330,7 +330,6 @@ setup_teams(){
   # Creating a database for VPN users
   echo "Creating user database..."
 #  sqlite3 $DB_FILE "CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, config TEXT);"
-  touch ./tmp/team_setup.log
   # Creating teams
   echo "Creating teams"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
@@ -356,6 +355,8 @@ setup_team_rules(){
 
 setup_team_vms(){
   # Creating team rules
+  touch ./tmp/team_setup.log
+
   echo "Creating teams vms"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
       if [ "$i" -ne 3 ]; then
