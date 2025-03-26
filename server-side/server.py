@@ -29,7 +29,7 @@ def create_vms():
         template_uuid = challenge.get("template_uuid")
         network_uuid = challenge.get("network_uuid")
         user=challenge.get("user")
-        password=challenge.get("pass")
+        password=challenge.get("password")
         commands=challenge.get("commands")
 
         if template_uuid and network_uuid:
