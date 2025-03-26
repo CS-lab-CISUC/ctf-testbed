@@ -10,6 +10,13 @@ import argparse
 import threading
 import dotenv
 import os
+from collections import defaultdict
+import pathlib
+
+
+
+
+team_ips = defaultdict(dict)
 
 
 def parse_arguments():
@@ -218,6 +225,9 @@ async def process_challenge(args,config,challenge,idx):
                 return
 
             print(f"[Thread-{idx}] [DEBUG] Created VM {vm_name} with ID {vm_id}")
+            
+            team_key = f"Team{args.team}"
+            team_ips[team_key][challenge.get("name")] = static_ip
 
             await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands,challenge)
 
@@ -256,6 +266,17 @@ if __name__ == "__main__":
 
     for thread in threads:
         thread.join()
+
+    output_path = pathlib.Path("./tmp/team_setup.log")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(output_path, "a") as f:
+        for team, ips in team_ips.items():
+            entry = {team: ips}
+            f.write(json.dumps(entry) + "\n")
+
+
+
 
 
     print("End Of Script")

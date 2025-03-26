@@ -74,7 +74,25 @@ def create_vms():
 
     if result.returncode == 0:
         print("Script terminou com sucesso!")
-        return jsonify({"status": "Funcionou",})
+
+        log_file_path = "/tmp/team_setup.log"
+        teams_data = {}
+
+        try:
+            with open(log_file_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        entry = json.loads(line)
+                        teams_data.update(entry)
+
+            return jsonify(teams_data)
+
+        except FileNotFoundError:
+            return jsonify({"error": "Ficheiro de equipas não encontrado."}), 500
+        except json.JSONDecodeError as e:
+            return jsonify({"error": f"Erro de parsing JSON: {str(e)}"}), 500
+
 
     else:
         print(f"Script terminou com erro! Código: {result.returncode}")
