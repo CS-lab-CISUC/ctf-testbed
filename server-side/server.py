@@ -4,6 +4,8 @@ import subprocess
 import os
 from dotenv import load_dotenv
 import glob
+import shutil
+
 app = Flask(__name__)
 
 @app.route("/create-vms", methods=["POST"])
@@ -12,6 +14,11 @@ def create_vms():
 
     if not data or not isinstance(data, dict):
         return jsonify({"error": "Formato inválido."}), 400
+    
+    output_dir = "./vm_outputs"
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir) 
+    os.makedirs(output_dir)
 
     challenges = data.get("challenges")
     num_teams = data.get("num_teams")
@@ -78,7 +85,7 @@ def create_vms():
 
         try:
             teams_data = {}
-            for file_path in glob.glob("./tmp/team_*.json"):
+            for file_path in glob.glob("./vm_outputs/team_*.json"):
                 with open(file_path, "r") as f:
                     entry = json.load(f)
                     teams_data.update(entry)
