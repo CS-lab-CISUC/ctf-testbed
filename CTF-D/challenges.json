@@ -130,7 +130,7 @@
         "network_uuid": "9a0cb714-365c-35b7-b777-ee8e4685757b ",
         "user":"ctf",
         "password":"ctf",
-        "commands": ["cd ./hard_challenge_1","./setup_flags_default.sh","sudo docker compose up -d","echo 'Challenge configured successfully' | sudo tee /tmp/chall_config.log"]
+        "commands": ["cd ./hard_challenge_1","./setup_flags_default.sh","docker compose up -d > /tmp/ctf_startup.log 2>&1","echo 'Challenge configured successfully' | sudo tee /tmp/chall_config.log"]
     },
     "Challenge 8": {
         "name": "Hard-Challenge Vieira-(Module2)",
@@ -149,6 +149,6 @@
         "network_uuid": "9a0cb714-365c-35b7-b777-ee8e4685757b ",
         "user":"ctf",
         "password":"ctf",
-        "commands": ["cd ./hard_challenge_1","./setup_flags_default.sh","sudo docker compose up -d","echo 'Challenge configured successfully' | sudo tee /tmp/chall_config.log"]
+        "commands": ["cd ./hard_challenge_1","./setup_flags_default.sh","docker compose up -d > /tmp/ctf_startup.log 2>&1","echo 'Challenge configured successfully' | sudo tee /tmp/chall_config.log"]
     }
 }
