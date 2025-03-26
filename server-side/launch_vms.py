@@ -14,6 +14,7 @@ from collections import defaultdict
 import pathlib
 
 
+lock = threading.Lock()
 
 
 team_ips = defaultdict(dict)
@@ -227,7 +228,9 @@ async def process_challenge(args,config,challenge,idx):
             print(f"[Thread-{idx}] [DEBUG] Created VM {vm_name} with ID {vm_id}")
             
             team_key = f"Team{args.team}"
-            team_ips[team_key][challenge.get("name")] = static_ip
+            with lock:
+                team_ips[team_key][challenge.get("name")] = static_ip
+
 
             await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands,challenge)
 
@@ -267,6 +270,8 @@ if __name__ == "__main__":
     for thread in threads:
         thread.join()
 
+    print("[DEBUG] team_ips final:", json.dumps(team_ips, indent=2))  # debug obrigatório
+
     output_path = pathlib.Path("./tmp/team_setup.log")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -274,6 +279,7 @@ if __name__ == "__main__":
         for team, ips in team_ips.items():
             entry = {team: ips}
             f.write(json.dumps(entry) + "\n")
+
 
 
 
