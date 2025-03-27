@@ -7,11 +7,18 @@ import re
 import paramiko
 import time
 import argparse
-
+import threading
 import dotenv
 import os
+from collections import defaultdict
+import pathlib
 
-receive_lock = asyncio.Lock()
+
+lock = threading.Lock()
+
+
+team_ips = defaultdict(dict)
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Launch VMs with specified parameters")
@@ -28,21 +35,18 @@ def parse_arguments():
 
 
 async def send_rpc(ws, method, params):
-    async with receive_lock:  
-        request_id = str(uuid.uuid4())
-        request = {"jsonrpc": "2.0", "method": method, "params": params, "id": request_id}
-        await ws.send_str(json.dumps(request))
+    request_id = str(uuid.uuid4())
+    request = {"jsonrpc": "2.0", "method": method, "params": params, "id": request_id}
+    await ws.send_str(json.dumps(request))
 
-        while True:
-            msg = await ws.receive()
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                response = json.loads(msg.data)
-                if response.get("id") == request_id:
-                    return response
-            elif msg.type == aiohttp.WSMsgType.ERROR:
-                break
-            elif msg.type == aiohttp.WSMsgType.CLOSED:
-                break
+    while True:
+        msg = await ws.receive()
+        if msg.type == aiohttp.WSMsgType.TEXT:
+            response = json.loads(msg.data)
+            if response.get("id") == request_id:
+                return response
+        elif msg.type == aiohttp.WSMsgType.ERROR:
+            break
     return None
 
 
@@ -92,10 +96,10 @@ async def get_vm_ip(ws, vm_id, max_retries=30, delay=20):
         await asyncio.sleep(delay)
     return None
 
-async def wait_for_ssh(ip, max_retries=20, delay=10):
+async def wait_for_ssh(ip,challenge , max_retries=20, delay=10):
     for attempt in range(1, max_retries + 1):
         try:
-            async with asyncssh.connect(ip, username=SSH_USER, password=SSH_PASSWORD, known_hosts=None) as conn:
+            async with asyncssh.connect(ip, username=challenge.get('user'), password=challenge.get('password'), known_hosts=None) as conn:
                 print(f"[DEBUG] SSH is available on {ip}")
                 return True
         except Exception:
@@ -103,56 +107,66 @@ async def wait_for_ssh(ip, max_retries=20, delay=10):
             await asyncio.sleep(delay)
     return False
 
-def execute_commands(VM_IP, commands):
+def execute_commands(VM_IP, commands, challenge):
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        print(f"[DEBUG] Connecting to {VM_IP} as {SSH_USER}...")
-        ssh.connect(VM_IP, username=SSH_USER, password=SSH_PASSWORD)
+        print(f"[DEBUG] Connecting to {VM_IP} as {challenge.get('user')}...")
+        ssh.connect(VM_IP, username=challenge.get('user'), password=challenge.get('password'))
 
         shell = ssh.invoke_shell()
-        time.sleep(1)  
+        time.sleep(1)
         initial_output = shell.recv(1024).decode()
         print(f"[DEBUG] Initial Shell Output:\n{initial_output}")
 
+        # Run default commands
         for command in commands:
-            print(f"[DEBUG] Executing: {command}")
+            print(f"[DEBUG] Executing default command: {command}")
             shell.send(command + "\n")
-            time.sleep(1)  
+            time.sleep(1)
             output = shell.recv(4096).decode()
             print(f"[DEBUG] Command Output:\n{output}")
 
             if "[sudo] password for" in output:
                 print("[DEBUG] Detected sudo password prompt, entering password...")
-                shell.send(SSH_PASSWORD + "\n")
-                time.sleep(1)  
+                shell.send(challenge.get('password') + "\n")
+                time.sleep(1)
                 output = shell.recv(4096).decode()
                 print(f"[DEBUG] Post-Password Output:\n{output}")
+
+        challenge_commands = challenge.get("commands", [])
+        if isinstance(challenge_commands, list):
+            for command in challenge_commands:
+                print(f"[DEBUG] Executing challenge-specific command: {command}")
+                shell.send(command + "\n")
+                time.sleep(1)
+                output = shell.recv(4096).decode()
+                print(f"[DEBUG] Command Output:\n{output}")
+
+                if "[sudo] password for" in output:
+                    print("[DEBUG] Detected sudo password prompt, entering password...")
+                    shell.send(challenge.get('password') + "\n")
+                    time.sleep(1)
+                    output = shell.recv(4096).decode()
+                    print(f"[DEBUG] Post-Password Output:\n{output}")
 
         ssh.close()
         print(f"[DEBUG] Commands executed successfully!")
 
-    except paramiko.AuthenticationException:
-        print("[ERROR] Authentication failed, please check credentials.")
-    except paramiko.SSHException as sshException:
-        print(f"[ERROR] Unable to establish SSH connection: {sshException}")
     except Exception as e:
-        print(f"[ERROR] General error: {e}")
+        print(f"[ERROR] Failed to execute commands: {e}")
 
 
-async def configure_vm_network(ws, vm_id, static_ip, gateway,interface_name, commands):
-    """Creates an asyncio task for network configuration"""
-    return asyncio.create_task(configure_vm_network_async(ws, vm_id, static_ip,gateway, interface_name, commands))
 
 
-async def configure_vm_network_async(ws, vm_id, static_ip,gateway, interface_name, commands):
+async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, commands,challenge):
     """Waits for VM readiness and configures the network"""
     if not await wait_for_vm_ready(ws, vm_id):
         return
 
     temp_ip = await get_vm_ip(ws, vm_id)
-    if not temp_ip or not await wait_for_ssh(temp_ip):
+    if not temp_ip or not await wait_for_ssh(temp_ip,challenge):
         return
 
     
@@ -161,7 +175,7 @@ async def configure_vm_network_async(ws, vm_id, static_ip,gateway, interface_nam
         for cmd in commands
     ]
 
-    execute_commands(temp_ip, formatted_commands)
+    execute_commands(temp_ip, formatted_commands,challenge)
 
     
     response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VIF"}})
@@ -192,40 +206,36 @@ async def get_existing_teams(ws):
     return max_team_number
 
 
-async def process_challenges(args,config):
+async def process_challenge(args,config,challenge,idx):
     """Handles challenge processing and VM creation asynchronously"""
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(XO_WS_URL) as ws:
-            await send_rpc(ws, "session.signIn", {"username": USERNAME, "password": PASSWORD})
-            results = []
-            tasks = []  
-
-            max_team_number = await get_existing_teams(ws)
-            new_team_number = max_team_number + 1
-            cont=0
+            print(f"[Thread-{idx}] Authenticating...")
+            auth_response = await send_rpc(ws, "session.signInWithPassword", {"email": USERNAME, "password": PASSWORD})
+            if not auth_response:
+                print(f"[Thread-{idx}] Authentication failed!")
+                return
+            vm_name = f"{args.prefix}-{args.team}-{challenge.get('name')}"
+            template_uuid = challenge.get("template_uuid")
+            static_ip = f"{args.subnet}.{idx+2}"
             gateway = f"{args.subnet}.{1}"
 
-            for challenge in config.get("challenges", []):
-                cont+=1
-                vm_name = f"{args.prefix}-{args.team}-CTF-TEAM-{new_team_number}-C-{cont}"
-                template_uuid = challenge.get("template_uuid")
-                static_ip = f"{args.subnet}.{cont+1}"
+            vm_id = await create_vm(ws, vm_name, template_uuid)
+            if not vm_id:
+                print(f"[Thread-{idx}] [ERROR] Failed to create VM {vm_name}")
+                return
 
-                vm_id = await create_vm(ws, vm_name, template_uuid)
-                if not vm_id:
-                    print(f"[ERROR] Failed to create VM {vm_name}")
-                    continue
+            print(f"[Thread-{idx}] [DEBUG] Created VM {vm_name} with ID {vm_id}")
+            
+            team_key = f"{args.team}"
+            with lock:
+                team_ips[team_key][challenge.get("name")] = static_ip
 
-                print(f"[DEBUG] VM {vm_name} created with ID {vm_id}")
 
-                task = await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands)
-                tasks.append(task)
+            await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands,challenge)
 
-                results.append({"name": vm_name, "vm_id": vm_id})
-
-            await asyncio.gather(*tasks)
-
-            return results
+def run_thread(args,config,challenge, idx):
+    asyncio.run(process_challenge(args,config,challenge, idx))
 
 
 
@@ -248,7 +258,27 @@ if __name__ == "__main__":
     TEMP_NETWORK_UUID = "f36baa81-d4c7-11c7-6a04-2c7315460201"  # VIF1 for SSH -> Eth3
     NETWORK_UUID = args.network_uuid  # VIF0 (Final network) -> CTF SubNet
 
-    result = asyncio.run(process_challenges(args,config))
-    with open(OUTPUT_FILE, "w") as file:
-        json.dump(result, file, indent=4)
-    print(f"Results stored in {OUTPUT_FILE}")
+    num_challenges = len(config.get("challenges", []))
+
+    threads = []
+
+    for idx, challenge in enumerate(config.get("challenges", [])):
+        thread = threading.Thread(target=run_thread, args=(args,config,challenge, idx))
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    print("[DEBUG] team_ips final:", json.dumps(team_ips, indent=2))  # debug obrigatório
+
+    # Guarda os IPs num ficheiro individual por equipa
+    print(f"[DEBUG] Current working dir: {os.getcwd()}")
+
+    output_path = pathlib.Path(f"./vm_outputs/{args.team.replace(' ', '_').lower()}.json")
+    output_path.parent.mkdir(parents=True, exist_ok=True)  # <- cria o diretório ./tmp se necessário
+
+    with open(output_path, "w") as f:
+        json.dump({args.team: team_ips[args.team]}, f)
+
+    print("End Of Script")

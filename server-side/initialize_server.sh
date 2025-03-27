@@ -59,7 +59,7 @@ cleanup() {
 
   sudo route -n | grep "^$CLIENT_MASK\."  # TODO: remove installed routes; careful with existing routes..
   sudo route del -net 10.0.0.0 netmask 255.0.0.0
-  /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='cleanup' --vm_prefix=$TEAM_VM_PREFIX --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":"'"$TEAMS_COUNT"'","pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-cleanup.txt
+  /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='cleanup' --vm_prefix=$EVENT_NAME --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":"'"$TEAMS_COUNT"'","pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-cleanup.txt
 }
 
 
@@ -137,7 +137,7 @@ setup_routes_firewall_network(){
   sudo iptables -A INPUT -p udp --dport 1194 -j ACCEPT
   sudo iptables -A FORWARD -s $SERVER_IP/24 -j ACCEPT
 
-  /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='setup' --vm_prefix=$TEAM_VM_PREFIX --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":'$TEAMS_COUNT',"pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-setup.txt
+  /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='setup' --vm_prefix=$EVENT_NAME --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":'$TEAMS_COUNT',"pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-setup.txt
   content=$(cat $INITIAL_DIR/tmp/temp_new_network.txt)
   NETWORK_UUID=$(echo "$content" | jq -r '.network_id')
   echo "Created network uuid: $NETWORK_UUID"
@@ -318,6 +318,7 @@ EOF
                 "sudo nmcli con mod 'Wired connection 1' ipv4.gateway {gateway}" \
                 "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '10.1.0.0/24 {gateway}'" \
                 "sudo nmcli con up 'Wired connection 1'" \
+                "sudo nmcli con mod 'Wired connection 1' ipv4.dns '$(resolvectl status $SERVER_OUT_INTERFACE | grep 'Current DNS Server:' | awk '{print $NF}')'"\
                 "sudo systemctl restart NetworkManager" \
                 "echo 'Network configured successfully' | sudo tee /tmp/network_config.log"
 
@@ -330,7 +331,6 @@ setup_teams(){
   # Creating a database for VPN users
   echo "Creating user database..."
 #  sqlite3 $DB_FILE "CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, config TEXT);"
-
   # Creating teams
   echo "Creating teams"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
@@ -356,6 +356,7 @@ setup_team_rules(){
 
 setup_team_vms(){
   # Creating team rules
+
   echo "Creating teams vms"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
       if [ "$i" -ne 3 ]; then
