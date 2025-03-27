@@ -96,7 +96,7 @@ def create_vms():
                     template_uuid = ch["template_uuid"]
                     template_challenge_map.setdefault(template_uuid, []).append(ch["name"])
 
-            for file_path in glob.glob("./vm_outputs/team_*.json"):
+            for file_path in glob.glob(os.path.join(output_dir, "team_*.json")):
                 with open(file_path, "r") as f:
                     entry = json.load(f)
                     updated_entry = {}
