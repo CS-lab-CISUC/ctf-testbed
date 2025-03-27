@@ -212,7 +212,7 @@ Example:
         "name": "Team 2",
         "password": "joaquimsilvateam",
     }
-`` 
+```
 
 ## WebServer Documentation
 
