@@ -32,7 +32,7 @@ def create_vms():
         "challenges": []
     }
 
-    for idx, challenge in enumerate(challenges, start=1):
+    for challenge in challenges:
         name = challenge.get("name")
         template_uuid = challenge.get("template_uuid")
         network_uuid = challenge.get("network_uuid")
@@ -41,19 +41,21 @@ def create_vms():
         commands=challenge.get("commands")
 
         if template_uuid and network_uuid:
-            print(f"Criar VM para challenge '{name}' com template '{template_uuid}' e rede '{network_uuid}'")
+            if not challenge.get("ImAModule", False):
+                print(f"Criar VM para challenge '{name}' com template '{template_uuid}' e rede '{network_uuid}'")
 
-            launch_config["challenges"].append({
-                "name": name,
-                "description": f"Created for Shift CTF| {challenge.get('description')}",
-                "template_uuid": template_uuid,
-                "network_uuid": network_uuid,
-                "user": user,
-                "password": password,
-                "commands": commands
-            })
+                launch_config["challenges"].append({
+                    "name": name,
+                    "description": f"Created for Shift CTF| {challenge.get('description')}",
+                    "template_uuid": template_uuid,
+                    "network_uuid": network_uuid,
+                    "user": user,
+                    "password": password,
+                    "commands": commands
+                })
 
-
+            else:
+                print(f"Challenge '{name}' não requer VM.")
       
         else:
             print(f"Challenge '{name}' não requer VM.")
@@ -85,10 +87,29 @@ def create_vms():
 
         try:
             teams_data = {}
+
+            template_challenge_map = {}
+            for ch in challenges:
+                if ch.get("template_uuid") and ch.get("network_uuid"):
+                    template_uuid = ch["template_uuid"]
+                    template_challenge_map.setdefault(template_uuid, []).append(ch["name"])
+
             for file_path in glob.glob("./vm_outputs/team_*.json"):
                 with open(file_path, "r") as f:
                     entry = json.load(f)
-                    teams_data.update(entry)
+                    updated_entry = {}
+                    for team, challenges_dict in entry.items():
+                        updated_entry[team] = {}
+                        for challenge_name, ip in challenges_dict.items():
+                            template_uuid = None
+                            for ch in challenges:
+                                if ch["name"] == challenge_name:
+                                    template_uuid = ch.get("template_uuid")
+                                    break
+                            names = template_challenge_map.get(template_uuid, [challenge_name])
+                            updated_entry[team][json.dumps(names)] = ip
+                    teams_data.update(updated_entry)
+
             return jsonify(teams_data)
         except FileNotFoundError:
             return jsonify({"error": "Ficheiro de equipas não encontrado."}), 500

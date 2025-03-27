@@ -16,7 +16,8 @@
         "network_uuid": null,
         "user":null,
         "password":null,
-        "commands": null
+        "commands": null,
+        "ImAModule":false
     },
     "Challenge 2": {
         "name": "Um ficheiro pode conter muita informação...", 
@@ -35,7 +36,8 @@
         "network_uuid": null,
         "user":null,
         "password":null,
-        "commands": null
+        "commands": null,
+        "ImAModule":false
     },
     "Challenge 3": {
         "name": "Jogo das escondidas",
@@ -54,7 +56,8 @@
         "network_uuid": null,
         "user":null,
         "password":null,
-        "commands": null
+        "commands": null,
+        "ImAModule":false
     },
     "Challenge 4": {
         "name": "Um Código estranho...",
@@ -73,7 +76,8 @@
         "network_uuid": null,
         "user":null,
         "password":null,
-        "commands": null
+        "commands": null,
+        "ImAModule":false
     },
     "Challenge 5": {
         "name": "Nem todos os arquivos são normais...",
@@ -92,7 +96,8 @@
         "network_uuid": null,
         "user":null,
         "password":null,
-        "commands": null
+        "commands": null,
+        "ImAModule":false
     },
     "Challenge 6": {
         "name": "Kali-de-Teste",
@@ -111,7 +116,8 @@
         "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
         "user":"kali",
         "password":"kali",
-        "commands": []
+        "commands": [],
+        "ImAModule":false
     },
     "Challenge 7": {
         "name": "Hard-Challenge Vieira-(Module1)",
@@ -130,7 +136,8 @@
         "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
         "user":"ctf",
         "password":"ctf",
-        "commands": []
+        "commands": [],
+        "ImAModule":false
     },
     "Challenge 8": {
         "name": "Hard-Challenge Vieira-(Module2)",
@@ -149,6 +156,7 @@
         "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
         "user":"ctf",
         "password":"ctf",
-        "commands": []
+        "commands": [],
+        "ImAModule":true
     }
 }

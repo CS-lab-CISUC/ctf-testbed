@@ -273,6 +273,8 @@ if __name__ == "__main__":
     print("[DEBUG] team_ips final:", json.dumps(team_ips, indent=2))  # debug obrigatório
 
     # Guarda os IPs num ficheiro individual por equipa
+    print(f"[DEBUG] Current working dir: {os.getcwd()}")
+
     output_path = pathlib.Path(f"./vm_outputs/{args.team.replace(' ', '_').lower()}.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)  # <- cria o diretório ./tmp se necessário
 
