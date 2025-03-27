@@ -321,7 +321,7 @@ EOF
                 "sudo nmcli con up 'Wired connection 1'" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.dns '$(resolvectl status $SERVER_OUT_INTERFACE | grep 'Current DNS Server:' | awk '{print $NF}')'"\
                 "sudo systemctl restart NetworkManager" \
-                "echo 'Network configured successfully' | sudo tee /tmp/network_config.log" > "$log_file" 2>&1
+                "echo 'Network configured successfully' | sudo tee /tmp/network_config.log" 
 
                 # f"ip addr add {STATIC_IP}/24 dev eth0",
                 # f"ip route add {GATEWAY} dev eth0",
