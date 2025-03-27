@@ -16,6 +16,7 @@ import pathlib
 
 lock = threading.Lock()
 
+ws_lock = asyncio.Lock()
 
 team_ips = defaultdict(dict)
 
@@ -35,19 +36,20 @@ def parse_arguments():
 
 
 async def send_rpc(ws, method, params):
-    request_id = str(uuid.uuid4())
-    request = {"jsonrpc": "2.0", "method": method, "params": params, "id": request_id}
-    await ws.send_str(json.dumps(request))
+    async with ws_lock:
+        request_id = str(uuid.uuid4())
+        request = {"jsonrpc": "2.0", "method": method, "params": params, "id": request_id}
+        await ws.send_str(json.dumps(request))
 
-    while True:
-        msg = await ws.receive()
-        if msg.type == aiohttp.WSMsgType.TEXT:
-            response = json.loads(msg.data)
-            if response.get("id") == request_id:
-                return response
-        elif msg.type == aiohttp.WSMsgType.ERROR:
-            break
-    return None
+        while True:
+            msg = await ws.receive()
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                response = json.loads(msg.data)
+                if response.get("id") == request_id:
+                    return response
+            elif msg.type == aiohttp.WSMsgType.ERROR:
+                break
+        return None
 
 
 
