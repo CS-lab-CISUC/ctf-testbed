@@ -58,7 +58,7 @@ sudo nano /etc/systemd/system/xe-daemon.service
 ```
 
 And paste this:
-
+```txt
 [Unit]
 Description=XE Guest Utilities Daemon
 After=network.target
@@ -70,6 +70,7 @@ Restart=always
 
 [Install]
 WantedBy=multi-user.target
+```
 
 
 ####  Execution
