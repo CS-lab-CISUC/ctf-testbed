@@ -15,7 +15,9 @@ def create_vms():
     if not data or not isinstance(data, dict):
         return jsonify({"error": "Formato inválido."}), 400
     
-    output_dir = "./vm_outputs"
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))  #
+    output_dir = os.path.join("/etc/openvpn/easy-rsa", "vm_outputs")  
+
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir) 
     os.makedirs(output_dir)
