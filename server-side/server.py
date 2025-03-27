@@ -1,10 +1,12 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,send_file
 import json
 import subprocess
 import os
 from dotenv import load_dotenv
 import glob
 import shutil
+import tempfile
+import zipfile
 
 app = Flask(__name__)
 
@@ -125,6 +127,51 @@ def create_vms():
         print(f"Script terminou com erro! Código: {result.returncode}")
         return jsonify({"status": "Ardeu",})
    
+
+@app.route("/download", methods=["GET"])
+def download_vm_package():
+    folders_to_zip = [
+        ("/etc/openvpn/client", "client"),
+        ("/etc/openvpn/easy-rsa/vm_outputs", "vm_outputs")
+    ]
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_zip:
+            with zipfile.ZipFile(temp_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for folder_path, archive_name in folders_to_zip:
+                    if not os.path.exists(folder_path):
+                        print(f"[WARN] Pasta não encontrada: {folder_path}")
+                        continue
+                    for root, dirs, files in os.walk(folder_path):
+                        for file in files:
+                            full_path = os.path.join(root, file)
+                            rel_path = os.path.relpath(full_path, folder_path)
+                            arcname = os.path.join(archive_name, rel_path)
+                            zipf.write(full_path, arcname=arcname)
+
+            temp_zip_path = temp_zip.name
+
+        response = send_file(
+            temp_zip_path,
+            as_attachment=True,
+            download_name="ctf_vm_package.zip",
+            mimetype="application/zip"
+        )
+
+        @response.call_on_close
+        def cleanup_tempfile():
+            try:
+                os.remove(temp_zip_path)
+                print(f"[DEBUG] ZIP temporário apagado: {temp_zip_path}")
+            except Exception as e:
+                print(f"[ERROR] Falha ao apagar ZIP temporário: {e}")
+
+        return response
+
+    except Exception as e:
+        return jsonify({"error": f"Erro ao criar ZIP: {str(e)}"}), 500
+
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
