@@ -126,11 +126,11 @@
         "flag": "Test_Flag",
         "flag_type": "static",
         "file_path": null,
-        "template_uuid": "812dae6a-681e-e034-995e-c5b341236ab3",
-        "network_uuid": "9a0cb714-365c-35b7-b777-ee8e4685757b ",
+        "template_uuid": "60e77e42-a119-1a81-3980-066c0db51105",
+        "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
         "user":"ctf",
         "password":"ctf",
-        "commands": ["./start.sh > /tmp/ctf_startup.log 2>&1"]
+        "commands": []
     },
     "Challenge 8": {
         "name": "Hard-Challenge Vieira-(Module2)",
@@ -145,10 +145,10 @@
         "flag": "Test_Flag",
         "flag_type": "static",
         "file_path": null,
-        "template_uuid": "812dae6a-681e-e034-995e-c5b341236ab3",
-        "network_uuid": "9a0cb714-365c-35b7-b777-ee8e4685757b ",
+        "template_uuid": "60e77e42-a119-1a81-3980-066c0db51105",
+        "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
         "user":"ctf",
         "password":"ctf",
-        "commands": ["./start.sh > /tmp/ctf_startup.log 2>&1"]
+        "commands": []
     }
 }
