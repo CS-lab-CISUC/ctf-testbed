@@ -1,0 +1,50 @@
+{
+    "User_1": {
+        "name": "Joaquim Silva",
+        "email": "joaquimsilva@gmail.com", 
+        "password": "joaquimsilva", 
+        "type": "user", 
+        "verified": true, 
+        "hidden": false, 
+        "banned": false,
+        "fields": [], 
+        "country": "PT",
+        "team": "Team_2"
+    },
+    "User_2": {
+        "name": "Mario Esteves",
+        "email": "marioesteves@gmail.com",
+        "password": "marioesteves",
+        "type": "user",
+        "verified": true,
+        "hidden": false,
+        "banned": false,
+        "fields": [],
+        "country": "PT",
+        "team": "Team_2"
+    },
+    "User_3": {
+        "name": "Jose Antunes",
+        "email": "joseantunes@gmail.com",
+        "password": "joseantunes",
+        "type": "user",
+        "verified": true,
+        "hidden": false,
+        "banned": false,
+        "fields": [],
+        "country": "PT",
+        "team": "Team_3"
+    },
+    "User_4": {
+        "name": "Maria Barcelona",
+        "email": "mariabarcelona@gmail.com",
+        "password": "mariabarcelona",
+        "type": "user",
+        "verified": true,
+        "hidden": false,
+        "banned": false,
+        "fields": [],
+        "country": "PT",
+        "team": "Team_3"
+    }
+}
