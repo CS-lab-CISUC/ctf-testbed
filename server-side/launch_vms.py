@@ -67,7 +67,7 @@ async def create_vm(ws, vm_name, template_uuid):
     return response.get("result") if response else None
 
 
-async def wait_for_vm_ready(ws, vm_id, max_retries=30, delay=20):
+async def wait_for_vm_ready(ws, vm_id, max_retries=100, delay=20):
     for attempt in range(1, max_retries + 1):
         response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"id": vm_id}})
         if response and "result" in response:
@@ -84,7 +84,7 @@ async def wait_for_vm_ready(ws, vm_id, max_retries=30, delay=20):
     print(f"[ERROR] VM {vm_id} did not fully boot in time.")
     return False
 
-async def get_vm_ip(ws, vm_id, max_retries=30, delay=20):
+async def get_vm_ip(ws, vm_id, max_retries=100, delay=20):
     for attempt in range(1, max_retries + 1):
         response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"id": vm_id}})
         if response and "result" in response:
@@ -96,7 +96,7 @@ async def get_vm_ip(ws, vm_id, max_retries=30, delay=20):
         await asyncio.sleep(delay)
     return None
 
-async def wait_for_ssh(ip,challenge , max_retries=20, delay=10):
+async def wait_for_ssh(ip,challenge , max_retries=100, delay=10):
     for attempt in range(1, max_retries + 1):
         try:
             async with asyncssh.connect(ip, username=challenge.get('user'), password=challenge.get('password'), known_hosts=None) as conn:

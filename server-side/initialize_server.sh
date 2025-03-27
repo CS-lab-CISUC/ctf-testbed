@@ -300,6 +300,7 @@ EOF
 
 create_team_vms(){
     echo "Creating team vms $2"
+    log_file="$INITIAL_DIR/tmp/team_vm_$2.log"
     local subnet_ch_base="$CLIENT_MASK.$2.1"
 : <<EOF
 EOF
@@ -320,7 +321,7 @@ EOF
                 "sudo nmcli con up 'Wired connection 1'" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.dns '$(resolvectl status $SERVER_OUT_INTERFACE | grep 'Current DNS Server:' | awk '{print $NF}')'"\
                 "sudo systemctl restart NetworkManager" \
-                "echo 'Network configured successfully' | sudo tee /tmp/network_config.log"
+                "echo 'Network configured successfully' | sudo tee /tmp/network_config.log" > "$log_file" 2>&1
 
                 # f"ip addr add {STATIC_IP}/24 dev eth0",
                 # f"ip route add {GATEWAY} dev eth0",
@@ -358,11 +359,19 @@ setup_team_vms(){
   # Creating team rules
 
   echo "Creating teams vms"
+  pids=()
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
       if [ "$i" -ne 3 ]; then
-        create_team_vms "team" "$i"
+          create_team_vms "team" "$i" &
+          pids+=($!)
       fi
   done
+
+  # Wait for all background jobs to finish
+  for pid in "${pids[@]}"; do
+      wait "$pid"
+  done
+
 }
 
 # ----------------------------------------------
