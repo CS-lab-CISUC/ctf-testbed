@@ -87,6 +87,8 @@ sudo systemctl start xe-daemon
 systemctl status xe-daemon
 ```
 
+The instalation of xe-guest-utilities is needed due the script launch-vms.py get´s the VMs IPs trought json-rpc to Xen Orchestra. And Xen Orchestra will only know ips of VMs with xe-guest-utilities intalled and initialized
+
 
 ⚠️ Recomendations ⚠️
 
