@@ -122,7 +122,7 @@ def add_challenges(url, token,challenges_file="challenges.json"):
 
 
 
-def add_users(url, token):
+def add_users(url, token,users_file="users.json",teams_file="teams.json"):
 
 
     headers = {
@@ -135,56 +135,16 @@ def add_users(url, token):
     session.headers.update(headers)
 
     # Dados dos utilizador que vão ser criados
-    users_data = {
-    "User_1": {
-        "name": "Joaquim Silva", #Nome da pessoa
-        "email": "joaquimsilva@gmail.com", #Email da pessoa
-        "password": "joaquimsilva", #Password da pessoa
-        "type": "user", #Tipo é sempre utilizador
-        "verified": True, #Estou a colocar verificado a true, não sei a influencia disto
-        "hidden": False, #Indica se o utilizador deve ser ocultado dos restantes
-        "banned": False, #Indica se o utilizador está banido
-        "fields": [], #Fields adiciona varias opçoes ao user
-        "country": "PT", #Country -> abreviatura
-        "team": "Team_2"
-    },
-    "User_2": {
-        "name": "Mario Esteves",
-        "email": "marioesteves@gmail.com",
-        "password": "marioesteves",
-        "type": "user",
-        "verified": True,
-        "hidden": False,
-        "banned": False,
-        "fields": [],
-        "country": "PT",
-        "team": "Team_2"
-    },
-    "User_3": {
-        "name": "Jose Antunes",
-        "email": "joseantunes@gmail.com",
-        "password": "joseantunes",
-        "type": "user",
-        "verified": True,
-        "hidden": False,
-        "banned": False,
-        "fields": [],
-        "country": "PT",
-        "team": "Team_3"
-    },
-    "User_4": {
-        "name": "Maria Barcelona",
-        "email": "mariabarcelona@gmail.com",
-        "password": "mariabarcelona",
-        "type": "user",
-        "verified": True,
-        "hidden": False,
-        "banned": False,
-        "fields": [],
-        "country": "PT",
-        "team": "Team_3"
-    }
-    }
+    try:
+        with open(users_file, "r", encoding="utf-8") as f:
+            users_data = json.load(f)
+    except FileNotFoundError:
+        print(f"Ficheiro '{users_file}' não encontrado.")
+        return 0, 0
+    except json.JSONDecodeError as e:
+        print(f"Erro a fazer parsing do ficheiro JSON: {e}")
+        return 0, 0
+     
 
     #Criação de utilizadores e armazenamento dos IDS criados para ser possivel adicionar os utilizadores às equipas
     user_ids = {}
@@ -201,16 +161,15 @@ def add_users(url, token):
 
 
     # Criação de teams
-    teams_data = {
-    "Team_2": {
-        "name": "Team 2",
-        "password": "joaquimsilvateam",
-    },
-    "Team_3": {
-        "name": "Team 3",
-        "password": "joseantunes",
-    },
-    }
+    try:
+        with open(teams_file, "r", encoding="utf-8") as f:
+            teams_data = json.load(f)
+    except FileNotFoundError:
+        print(f"Ficheiro '{teams_file}' não encontrado.")
+        return 0, 0
+    except json.JSONDecodeError as e:
+        print(f"Erro a fazer parsing do ficheiro JSON: {e}")
+        return 0, 
 
     team_ids = {} #Armazenamento do id das teams para posterior associação dos utilizadores
     teams_counter = 0
