@@ -100,7 +100,7 @@
         "ImAModule":false
     },
     "Challenge 6": {
-        "name": "Kali-de-Teste",
+        "name": "CH1-NotWorkingTestPurposes",
         "category": "",
         "description": "Kali-de-Teste",
         "value": 500,
@@ -112,7 +112,7 @@
         "flag": "Test_Flag",
         "flag_type": "static",
         "file_path": null,
-        "template_uuid": "988fb130-5eb2-1a2c-cba2-d41b1dd5f5a6",
+        "template_uuid": "812dae6a-681e-e034-995e-c5b341236ab3",
         "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
         "user":"kali",
         "password":"kali",
@@ -120,7 +120,7 @@
         "ImAModule":false
     },
     "Challenge 7": {
-        "name": "Hard-Challenge Vieira-(Module1)",
+        "name": "CH2-Hard-Challenge Vieira-(Module1)",
         "category": "",
         "description": "Vieira Module 1",
         "value": 500,
@@ -140,7 +140,7 @@
         "ImAModule":false
     },
     "Challenge 8": {
-        "name": "Hard-Challenge Vieira-(Module2)",
+        "name": "CH3-Hard-Challenge Vieira-(Module2)",
         "category": "",
         "description": "Vieira Module 2",
         "value": 500,
