@@ -12,6 +12,14 @@ import dotenv
 import os
 from collections import defaultdict
 import pathlib
+import random
+
+def generate_random_mac():
+    mac = [0x02, 0x00, 0x00,
+           random.randint(0x00, 0x7f),
+           random.randint(0x00, 0xff),
+           random.randint(0x00, 0xff)]
+    return ':'.join(map(lambda x: "%02x" % x, mac))
 
 
 lock = threading.Lock()
@@ -35,7 +43,9 @@ def parse_arguments():
 
 
 async def send_rpc(ws, method, params):
+
     request_id = str(uuid.uuid4())
+    print(f"[DEBUG] UUID:{request_id}")
     request = {"jsonrpc": "2.0", "method": method, "params": params, "id": request_id}
     await ws.send_str(json.dumps(request))
 
@@ -51,6 +61,7 @@ async def send_rpc(ws, method, params):
 
 
 
+
 async def create_vm(ws, vm_name, template_uuid):
     """Creates the VM with two VIFs (VIF0=Challenge Network, VIF1=SSH)"""
     params = {
@@ -59,15 +70,15 @@ async def create_vm(ws, vm_name, template_uuid):
         "template": template_uuid,
         "bootAfterCreate": True,
         "VIFs": [
-            {"network": NETWORK_UUID},  # VIF0: Main network (eth0)
-            {"network": TEMP_NETWORK_UUID}  # VIF1: Temporary SSH access
+            {"network": NETWORK_UUID,"mac": generate_random_mac()},  # VIF0: Main network (eth0)
+            {"network": TEMP_NETWORK_UUID,"mac": generate_random_mac()}  # VIF1: Temporary SSH access
         ]
     }
     response = await send_rpc(ws, "vm.create", params)
     return response.get("result") if response else None
 
 
-async def wait_for_vm_ready(ws, vm_id, max_retries=30, delay=20):
+async def wait_for_vm_ready(ws, vm_id, max_retries=50, delay=20):
     for attempt in range(1, max_retries + 1):
         response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"id": vm_id}})
         if response and "result" in response:
@@ -84,7 +95,7 @@ async def wait_for_vm_ready(ws, vm_id, max_retries=30, delay=20):
     print(f"[ERROR] VM {vm_id} did not fully boot in time.")
     return False
 
-async def get_vm_ip(ws, vm_id, max_retries=30, delay=20):
+async def get_vm_ip(ws, vm_id, max_retries=50, delay=20):
     for attempt in range(1, max_retries + 1):
         response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"id": vm_id}})
         if response and "result" in response:
@@ -96,7 +107,7 @@ async def get_vm_ip(ws, vm_id, max_retries=30, delay=20):
         await asyncio.sleep(delay)
     return None
 
-async def wait_for_ssh(ip,challenge , max_retries=20, delay=10):
+async def wait_for_ssh(ip,challenge , max_retries=50, delay=10):
     for attempt in range(1, max_retries + 1):
         try:
             async with asyncssh.connect(ip, username=challenge.get('user'), password=challenge.get('password'), known_hosts=None) as conn:
@@ -107,6 +118,44 @@ async def wait_for_ssh(ip,challenge , max_retries=20, delay=10):
             await asyncio.sleep(delay)
     return False
 
+def expect_prompt(shell, prompt='$', timeout=10):
+    """Read from shell until we get the prompt or timeout."""
+    shell.settimeout(timeout)
+    buffer = ''
+    while True:
+        try:
+            data = shell.recv(1024).decode()
+            if not data:
+                break
+            buffer += data
+            if prompt in buffer:
+                break
+        except Exception:
+            break
+    return buffer
+
+def send_command(shell, command, password=None):
+    """Send command and handle sudo password if needed."""
+    print(f"[DEBUG] Sending: {command}")
+    shell.send(command + "\n")
+    output = expect_prompt(shell)
+    print(f"[DEBUG] Output:\n{output}")
+
+    if "[sudo] password for" in output:
+        print("[DEBUG] Sending sudo password...")
+        shell.send(password + "\n")
+        output = expect_prompt(shell)
+        print(f"[DEBUG] Post-password Output:\n{output}")
+
+    return output
+
+# Espera até que a interface 'Wired connection 1' tenha o IP estático atribuído
+def check_static_ip(ssh, expected_ip):
+    stdin, stdout, stderr = ssh.exec_command("ip addr show")
+    output = stdout.read().decode()
+    return expected_ip in output
+
+
 def execute_commands(VM_IP, commands, challenge):
     try:
         ssh = paramiko.SSHClient()
@@ -116,52 +165,46 @@ def execute_commands(VM_IP, commands, challenge):
         ssh.connect(VM_IP, username=challenge.get('user'), password=challenge.get('password'))
 
         shell = ssh.invoke_shell()
-        time.sleep(1)
-        initial_output = shell.recv(1024).decode()
+        time.sleep(2)
+
+        initial_output = expect_prompt(shell)
         print(f"[DEBUG] Initial Shell Output:\n{initial_output}")
 
-        # Run default commands
         for command in commands:
-            print(f"[DEBUG] Executing default command: {command}")
-            shell.send(command + "\n")
-            time.sleep(1)
-            output = shell.recv(4096).decode()
-            print(f"[DEBUG] Command Output:\n{output}")
-
-            if "[sudo] password for" in output:
-                print("[DEBUG] Detected sudo password prompt, entering password...")
-                shell.send(challenge.get('password') + "\n")
-                time.sleep(1)
-                output = shell.recv(4096).decode()
-                print(f"[DEBUG] Post-Password Output:\n{output}")
+            send_command(shell, command, password=challenge.get('password'))
 
         challenge_commands = challenge.get("commands", [])
         if isinstance(challenge_commands, list):
             for command in challenge_commands:
-                print(f"[DEBUG] Executing challenge-specific command: {command}")
-                shell.send(command + "\n")
-                time.sleep(1)
-                output = shell.recv(4096).decode()
-                print(f"[DEBUG] Command Output:\n{output}")
+                send_command(shell, command, password=challenge.get('password'))
 
-                if "[sudo] password for" in output:
-                    print("[DEBUG] Detected sudo password prompt, entering password...")
-                    shell.send(challenge.get('password') + "\n")
-                    time.sleep(1)
-                    output = shell.recv(4096).decode()
-                    print(f"[DEBUG] Post-Password Output:\n{output}")
+        for attempt in range(5):
+            if check_static_ip(ssh, challenge["static_ip"]):
+                print(f"[DEBUG] Static IP {challenge['static_ip']} successfully verified.")
+                break
+            print(f"[DEBUG] Static IP {challenge['static_ip']} not yet applied. Retrying...")
+            time.sleep(5)
+        else:
+            
+            print(f"[ERROR] Static IP {challenge['static_ip']} not detected after retries.")
+            return False
 
+        shell.close()
         ssh.close()
         print(f"[DEBUG] Commands executed successfully!")
+        return True
 
     except Exception as e:
-        print(f"[ERROR] Failed to execute commands: {e}")
+        print(f"[ERROR] Failed to execute commands on {VM_IP}: {e}")
+        return False
+
+
+
 
 
 
 
 async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, commands,challenge):
-    """Waits for VM readiness and configures the network"""
     if not await wait_for_vm_ready(ws, vm_id):
         return
 
@@ -170,28 +213,33 @@ async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, com
         print(f"[ERROR] Failed to connect through ssh wait_for_ssh: {temp_ip} {challenge}")
         return
 
-    
     formatted_commands = [
         cmd.replace("{static_ip}", static_ip).replace("{interface_name}", interface_name).replace("{gateway}", gateway)
         for cmd in commands
     ]
 
-    execute_commands(temp_ip, formatted_commands,challenge)
+    challenge["static_ip"] = static_ip
 
-    
+    for attempt in range(5):
+        success = execute_commands(temp_ip, formatted_commands, challenge)
+        if success:
+            break
+        print(f"[WARN] Attempt {attempt+1} failed. Retrying configuration in 5s...")
+        await asyncio.sleep(5)
+    else:
+        print(f"[ERROR] All retries failed for VM {vm_id}. Skipping VIF removal.")
+        return
+
     response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VIF"}})
     if response and "result" in response:
- 
-         for vif_id, vif_info in response["result"].items():
-             vif_vm_id = vif_info.get("$VM")  
-             vif_network_id = vif_info.get("$network")  
- 
- 
-             if vif_vm_id == vm_id and vif_network_id == TEMP_NETWORK_UUID:  
-                 print(f"[DEBUG] Removing Temporary VIF ({vif_id}) from VM {vm_id}")
-                 await send_rpc(ws, "vif.delete", {"id": vif_id})
-                 return
- 
+        for vif_id, vif_info in response["result"].items():
+            vif_vm_id = vif_info.get("$VM")
+            vif_network_id = vif_info.get("$network")
+            if vif_vm_id == vm_id and vif_network_id == TEMP_NETWORK_UUID:
+                print(f"[DEBUG] Removing Temporary VIF ({vif_id}) from VM {vm_id}")
+                await send_rpc(ws, "vif.delete", {"id": vif_id})
+                return
+
     print(f"[ERROR] Could not find Temporary VIF for VM {vm_id}")
 
 async def get_existing_teams(ws):
@@ -208,11 +256,15 @@ async def get_existing_teams(ws):
 
 
 async def process_challenge(args,config,challenge,idx):
+
     """Handles challenge processing and VM creation asynchronously"""
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(XO_WS_URL) as ws:
             print(f"[Thread-{idx}] Authenticating...")
-            auth_response = await send_rpc(ws, "session.signInWithPassword", {"email": USERNAME, "password": PASSWORD})
+            auth_response = await send_rpc(ws, "session.signInWithPassword",
+                                           {"email": USERNAME, "password": PASSWORD})
+
+
             if not auth_response:
                 print(f"[Thread-{idx}] Authentication failed!")
                 return
@@ -264,6 +316,8 @@ if __name__ == "__main__":
 
     threads = []
 
+    print(f"Runningn Challenges Threads {challenges}")
+     
     for idx, challenge in enumerate(challenges):
         thread = threading.Thread(target=run_thread, args=(args,config,challenge, idx))
         threads.append(thread)
@@ -271,6 +325,10 @@ if __name__ == "__main__":
 
     for thread in threads:
         thread.join()
+
+   
+
+
 
     print("[DEBUG] team_ips final:", json.dumps(team_ips, indent=2))  # debug obrigatório
 

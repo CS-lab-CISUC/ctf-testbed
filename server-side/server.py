@@ -115,7 +115,7 @@ def create_vms():
     print("A executar script de inicialização de VMs...")
     with open(log_file, "w") as log:
         result = subprocess.run(
-            f'echo "{NotAtAllSuspicious}" | sudo -S {script_command}',
+            f'echo "{NotAtAllSuspicious}" | sudo -E -S {script_command}',
             shell=True,
             stdout=log,
             stderr=subprocess.STDOUT,

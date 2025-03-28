@@ -1,6 +1,6 @@
 {
     "User_1": {
-        "name": "Joaquim Silva",
+        "name": "Bot1",
         "email": "joaquimsilva@gmail.com", 
         "password": "joaquimsilva", 
         "type": "user", 
@@ -9,10 +9,10 @@
         "banned": false,
         "fields": [], 
         "country": "PT",
-        "team": "Team_2"
+        "team": "Team_1"
     },
     "User_2": {
-        "name": "Mario Esteves",
+        "name": "Bot2",
         "email": "marioesteves@gmail.com",
         "password": "marioesteves",
         "type": "user",
@@ -24,7 +24,7 @@
         "team": "Team_2"
     },
     "User_3": {
-        "name": "Jose Antunes",
+        "name": "Bot3",
         "email": "joseantunes@gmail.com",
         "password": "joseantunes",
         "type": "user",
@@ -36,8 +36,8 @@
         "team": "Team_3"
     },
     "User_4": {
-        "name": "Maria Barcelona",
-        "email": "mariabarcelona@gmail.com",
+        "name": "bot4",
+        "email": "bot4@gmail.com",
         "password": "mariabarcelona",
         "type": "user",
         "verified": true,
@@ -45,6 +45,78 @@
         "banned": false,
         "fields": [],
         "country": "PT",
-        "team": "Team_3"
+        "team": "Team_4"
+    },
+    "User_5": {
+        "name": "bot5",
+        "email": "bot5@gmail.com",
+        "password": "mariabarcelona",
+        "type": "user",
+        "verified": true,
+        "hidden": false,
+        "banned": false,
+        "fields": [],
+        "country": "PT",
+        "team": "Team_5"
+    },
+    "User_6": {
+        "name": "Bot6",
+        "email": "bot6@gmail.com",
+        "password": "mariabarcelona",
+        "type": "user",
+        "verified": true,
+        "hidden": false,
+        "banned": false,
+        "fields": [],
+        "country": "PT",
+        "team": "Team_6"
+    },
+    "User_7": {
+        "name": "bot7",
+        "email": "bot7@gmail.com",
+        "password": "mariabarcelona",
+        "type": "user",
+        "verified": true,
+        "hidden": false,
+        "banned": false,
+        "fields": [],
+        "country": "PT",
+        "team": "Team_7"
+    },
+    "User_8": {
+        "name": "bot8",
+        "email": "bot8@gmail.com",
+        "password": "mariabarcelona",
+        "type": "user",
+        "verified": true,
+        "hidden": false,
+        "banned": false,
+        "fields": [],
+        "country": "PT",
+        "team": "Team_8"
+    },
+    "User_9": {
+        "name": "bot9",
+        "email": "bot9@gmail.com",
+        "password": "mariabarcelona",
+        "type": "user",
+        "verified": true,
+        "hidden": false,
+        "banned": false,
+        "fields": [],
+        "country": "PT",
+        "team": "Team_9"
+    },
+    "User_10": {
+        "name": "bot10",
+        "email": "bot10@gmail.com",
+        "password": "mariabarcelona",
+        "type": "user",
+        "verified": true,
+        "hidden": false,
+        "banned": false,
+        "fields": [],
+        "country": "PT",
+        "team": "Team_10"
     }
 }
