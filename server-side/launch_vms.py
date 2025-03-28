@@ -12,6 +12,14 @@ import dotenv
 import os
 from collections import defaultdict
 import pathlib
+import random
+
+def generate_random_mac():
+    mac = [0x02, 0x00, 0x00,
+           random.randint(0x00, 0x7f),
+           random.randint(0x00, 0xff),
+           random.randint(0x00, 0xff)]
+    return ':'.join(map(lambda x: "%02x" % x, mac))
 
 
 lock = threading.Lock()
@@ -62,8 +70,8 @@ async def create_vm(ws, vm_name, template_uuid):
         "template": template_uuid,
         "bootAfterCreate": True,
         "VIFs": [
-            {"network": NETWORK_UUID},  # VIF0: Main network (eth0)
-            {"network": TEMP_NETWORK_UUID}  # VIF1: Temporary SSH access
+            {"network": NETWORK_UUID,"mac": generate_random_mac()},  # VIF0: Main network (eth0)
+            {"network": TEMP_NETWORK_UUID,"mac": generate_random_mac()}  # VIF1: Temporary SSH access
         ]
     }
     response = await send_rpc(ws, "vm.create", params)
