@@ -110,44 +110,67 @@ async def wait_for_ssh(ip,challenge , max_retries=50, delay=10):
             await asyncio.sleep(delay)
     return False
 
-def run_command(ssh, command, challenge):
-    try:
-        wrapped = f"echo '{challenge.get('password')}' | sudo -S bash -c \"{command}\""
-        print(f"[DEBUG] Executing command: {wrapped}")
-        stdin, stdout, stderr = ssh.exec_command(wrapped, get_pty=True)
-        out = stdout.read().decode()
-        err = stderr.read().decode()
-        print(f"[DEBUG] STDOUT:\n{out}")
-        if err:
-            print(f"[DEBUG] STDERR:\n{err}")
-        return True
-    except Exception as e:
-        print(f"[ERROR] Exception running command: {e}")
-        return False
+def expect_prompt(shell, prompt='$', timeout=10):
+    """Read from shell until we get the prompt or timeout."""
+    shell.settimeout(timeout)
+    buffer = ''
+    while True:
+        try:
+            data = shell.recv(1024).decode()
+            if not data:
+                break
+            buffer += data
+            if prompt in buffer:
+                break
+        except Exception:
+            break
+    return buffer
 
+def send_command(shell, command, password=None):
+    """Send command and handle sudo password if needed."""
+    print(f"[DEBUG] Sending: {command}")
+    shell.send(command + "\n")
+    output = expect_prompt(shell)
+    print(f"[DEBUG] Output:\n{output}")
+
+    if "[sudo] password for" in output:
+        print("[DEBUG] Sending sudo password...")
+        shell.send(password + "\n")
+        output = expect_prompt(shell)
+        print(f"[DEBUG] Post-password Output:\n{output}")
+
+    return output
 
 
 def execute_commands(VM_IP, commands, challenge):
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
         print(f"[DEBUG] Connecting to {VM_IP} as {challenge.get('user')}...")
         ssh.connect(VM_IP, username=challenge.get('user'), password=challenge.get('password'))
 
+        shell = ssh.invoke_shell()
+        time.sleep(2)
+
+        initial_output = expect_prompt(shell)
+        print(f"[DEBUG] Initial Shell Output:\n{initial_output}")
+
         for command in commands:
-            if not run_command(ssh, command, challenge):
-                print(f"[ERROR] Failed to execute default command: {command}")
+            send_command(shell, command, password=challenge.get('password'))
 
         challenge_commands = challenge.get("commands", [])
         if isinstance(challenge_commands, list):
             for command in challenge_commands:
-                if not run_command(ssh, command, challenge):
-                    print(f"[ERROR] Failed to execute challenge-specific command: {command}")
+                send_command(shell, command, password=challenge.get('password'))
 
+        shell.close()
         ssh.close()
         print(f"[DEBUG] Commands executed successfully!")
+
     except Exception as e:
         print(f"[ERROR] Failed to execute commands on {VM_IP}: {e}")
+
 
 
 
