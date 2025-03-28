@@ -167,6 +167,7 @@ async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, com
 
     temp_ip = await get_vm_ip(ws, vm_id)
     if not temp_ip or not await wait_for_ssh(temp_ip,challenge):
+        print(f"[ERROR] Failed to connect through ssh wait_for_ssh: {temp_ip} {challenge}")
         return
 
     
@@ -258,11 +259,12 @@ if __name__ == "__main__":
     TEMP_NETWORK_UUID = "f36baa81-d4c7-11c7-6a04-2c7315460201"  # VIF1 for SSH -> Eth3
     NETWORK_UUID = args.network_uuid  # VIF0 (Final network) -> CTF SubNet
 
-    num_challenges = len(config.get("challenges", []))
+    challenges = config.get("vms", [])
+    num_challenges = len(challenges)
 
     threads = []
 
-    for idx, challenge in enumerate(config.get("challenges", [])):
+    for idx, challenge in enumerate(challenges):
         thread = threading.Thread(target=run_thread, args=(args,config,challenge, idx))
         threads.append(thread)
         thread.start()

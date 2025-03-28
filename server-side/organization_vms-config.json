@@ -1,0 +1,13 @@
+{
+    "vms": [
+        {
+            "name": "LLM challenge",
+            "description": "Created for Shift CTF| LLM Challenge",
+            "template_uuid": "60e77e42-a119-1a81-3980-066c0db51105",
+            "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
+            "user": "ctf",
+            "password": "ctf",
+            "commands": []
+        }
+    ]
+}

@@ -223,6 +223,8 @@ def main():
         return
 
         
+    # counter_teams = counter_challenges = counter_challenges_vm = 1
+    # num_vpn_users = 3
     counter_challenges, counter_challenges_vm = add_challenges(url, token)
     counter_teams = add_users(url, token)
     if counter_challenges > 0 and  counter_teams > 0: #Consideremos que a adição dos challenges e dos utilizados funciona se o contador for maior que 0
@@ -234,15 +236,23 @@ def main():
             "Content-Type": "application/json"
         })
         with open("challenges.json", "r", encoding="utf-8") as f:
-            all_challenges = list(json.load(f).values()) 
-        
+            all_challenges = list(json.load(f).values())
+
+        with open("org_vms.json", "r", encoding="utf-8") as f:
+            organization_vms = list(json.load(f).values())
+
         challenges_with_vm = [ch for ch in all_challenges if ch.get("template_uuid") is not None]
         payload = {
             "challenges": challenges_with_vm,
-            "num_teams": counter_teams
+            "organization_vms": organization_vms,
+            "num_teams": counter_teams,
+            "num_users": num_vpn_users
         }
         response = requests.post("http://127.0.0.1:5000/create-vms", json=payload)
         print("\nResposta do servidor Flask:", response.text)
+
+        with open("create-vms-response.json", "w") as f:
+            json.dump(response.text, f, indent=4)
 
         session.close()
 

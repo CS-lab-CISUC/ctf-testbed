@@ -210,7 +210,7 @@ async def setupVIFsOpenVPN(ws, args, network_id):
         openvpn_vm_id = vm['id']
         if params['openvpn_vm_name'] == name:
             VIFs = vm['VIFs']
-            for i in range(int(params['num_teams'])):
+            for i in range(int(params['num_teams']) + 1):  # +1 for organizational VIF
                 if openvpn_vm_id == openvpn_vm_id:
                     print(f"[DEBUG] Creating VIF on VM {openvpn_vm_id}")
                     response = await send_rpc(ws, "vm.createInterface", {"vm": openvpn_vm_id, "network": network_id})
