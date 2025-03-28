@@ -423,15 +423,29 @@ setup_team_rules(){
   done
 }
 
-setup_team_vms(){
-  # Creating team rules
+setup_team_vms() {
+  echo "Creating teams vms in parallel"
 
-  echo "Creating teams vms"
+  declare -a pids=()
+
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-      if [ "$i" -ne 3 ]; then
+    if [ "$i" -ne 3 ]; then
+      (
+        echo "[Team $i] Starting..."
         create_team_vms "team" "$i"
-      fi
+        echo "[Team $i] Finished!"
+      ) &
+      pids+=($!)
+    fi
   done
+
+  echo "Waiting for all teams to finish..."
+
+  for pid in "${pids[@]}"; do
+    wait "$pid"
+  done
+
+  echo "All teams created!"
 }
 
 
