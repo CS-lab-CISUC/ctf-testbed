@@ -359,19 +359,11 @@ setup_team_vms(){
   # Creating team rules
 
   echo "Creating teams vms"
-  pids=()
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
       if [ "$i" -ne 3 ]; then
-          create_team_vms "team" "$i" &
-          pids+=($!)
+        create_team_vms "team" "$i"
       fi
   done
-
-  # Wait for all background jobs to finish
-  for pid in "${pids[@]}"; do
-      wait "$pid"
-  done
-
 }
 
 # ----------------------------------------------

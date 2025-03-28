@@ -34,27 +34,27 @@ def parse_arguments():
 
 
 
-async def send_rpc(ws, method, params, ws_lock):
+async def send_rpc(ws, method, params):
 
-    async with ws_lock:
-        request_id = str(uuid.uuid4())
-        request = {"jsonrpc": "2.0", "method": method, "params": params, "id": request_id}
-        await ws.send_str(json.dumps(request))
+    request_id = str(uuid.uuid4())
+    print(f"[DEBUG] UUID:{request_id}")
+    request = {"jsonrpc": "2.0", "method": method, "params": params, "id": request_id}
+    await ws.send_str(json.dumps(request))
 
-        while True:
-            msg = await ws.receive()
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                response = json.loads(msg.data)
-                if response.get("id") == request_id:
-                    return response
-            elif msg.type == aiohttp.WSMsgType.ERROR:
-                break
-        return None
-
-
+    while True:
+        msg = await ws.receive()
+        if msg.type == aiohttp.WSMsgType.TEXT:
+            response = json.loads(msg.data)
+            if response.get("id") == request_id:
+                return response
+        elif msg.type == aiohttp.WSMsgType.ERROR:
+            break
+    return None
 
 
-async def create_vm(ws, vm_name, template_uuid,ws_lock):
+
+
+async def create_vm(ws, vm_name, template_uuid):
     """Creates the VM with two VIFs (VIF0=Challenge Network, VIF1=SSH)"""
     params = {
         "name_label": vm_name,
@@ -66,13 +66,13 @@ async def create_vm(ws, vm_name, template_uuid,ws_lock):
             {"network": TEMP_NETWORK_UUID}  # VIF1: Temporary SSH access
         ]
     }
-    response = await send_rpc(ws, "vm.create", params,ws_lock)
+    response = await send_rpc(ws, "vm.create", params)
     return response.get("result") if response else None
 
 
-async def wait_for_vm_ready(ws, vm_id,ws_lock, max_retries=100, delay=20):
+async def wait_for_vm_ready(ws, vm_id, max_retries=100, delay=20):
     for attempt in range(1, max_retries + 1):
-        response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"id": vm_id}},ws_lock)
+        response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"id": vm_id}})
         if response and "result" in response:
             vm_info = response["result"].get(vm_id, {})
             power_state = vm_info.get("power_state", "")
@@ -87,9 +87,9 @@ async def wait_for_vm_ready(ws, vm_id,ws_lock, max_retries=100, delay=20):
     print(f"[ERROR] VM {vm_id} did not fully boot in time.")
     return False
 
-async def get_vm_ip(ws, vm_id,ws_lock, max_retries=100, delay=20):
+async def get_vm_ip(ws, vm_id, max_retries=100, delay=20):
     for attempt in range(1, max_retries + 1):
-        response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"id": vm_id}},ws_lock)
+        response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"id": vm_id}})
         if response and "result" in response:
             vm_info = response["result"].get(vm_id, {})
             addresses = vm_info.get("addresses", {})
@@ -163,12 +163,12 @@ def execute_commands(VM_IP, commands, challenge):
 
 
 
-async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, commands,challenge,ws_lock):
+async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, commands,challenge):
     """Waits for VM readiness and configures the network"""
-    if not await wait_for_vm_ready(ws, vm_id,ws_lock):
+    if not await wait_for_vm_ready(ws, vm_id):
         return
 
-    temp_ip = await get_vm_ip(ws, vm_id,ws_lock)
+    temp_ip = await get_vm_ip(ws, vm_id)
     if not temp_ip or not await wait_for_ssh(temp_ip,challenge):
         return
 
@@ -181,7 +181,7 @@ async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, com
     execute_commands(temp_ip, formatted_commands,challenge)
 
     
-    response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VIF"}},ws_lock)
+    response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VIF"}})
     if response and "result" in response:
  
          for vif_id, vif_info in response["result"].items():
@@ -191,13 +191,13 @@ async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, com
  
              if vif_vm_id == vm_id and vif_network_id == TEMP_NETWORK_UUID:  
                  print(f"[DEBUG] Removing Temporary VIF ({vif_id}) from VM {vm_id}")
-                 await send_rpc(ws, "vif.delete", {"id": vif_id},ws_lock)
+                 await send_rpc(ws, "vif.delete", {"id": vif_id})
                  return
  
     print(f"[ERROR] Could not find Temporary VIF for VM {vm_id}")
 
-async def get_existing_teams(ws,ws_lock):
-    response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VM"}},ws_lock)
+async def get_existing_teams(ws):
+    response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VM"}})
     if "result" not in response:
         return 0  
     max_team_number = 0
@@ -210,15 +210,13 @@ async def get_existing_teams(ws,ws_lock):
 
 
 async def process_challenge(args,config,challenge,idx):
-    ws_lock = asyncio.Lock()
 
     """Handles challenge processing and VM creation asynchronously"""
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(XO_WS_URL) as ws:
             print(f"[Thread-{idx}] Authenticating...")
             auth_response = await send_rpc(ws, "session.signInWithPassword",
-                                           {"email": USERNAME, "password": PASSWORD},
-                                           ws_lock)
+                                           {"email": USERNAME, "password": PASSWORD})
 
 
             if not auth_response:
@@ -229,7 +227,7 @@ async def process_challenge(args,config,challenge,idx):
             static_ip = f"{args.subnet}.{idx+2}"
             gateway = f"{args.subnet}.{1}"
 
-            vm_id = await create_vm(ws, vm_name, template_uuid,ws_lock)
+            vm_id = await create_vm(ws, vm_name, template_uuid)
             if not vm_id:
                 print(f"[Thread-{idx}] [ERROR] Failed to create VM {vm_name}")
                 return
@@ -241,7 +239,7 @@ async def process_challenge(args,config,challenge,idx):
                 team_ips[team_key][challenge.get("name")] = static_ip
 
 
-            await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands,challenge,ws_lock)
+            await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands,challenge)
 
 def run_thread(args,config,challenge, idx):
     asyncio.run(process_challenge(args,config,challenge, idx))
