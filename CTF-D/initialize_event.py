@@ -267,7 +267,7 @@ def main():
 
     cleanup(url,token)
     # counter_teams = counter_challenges = counter_challenges_vm = 1
-    num_vpn_users = 4
+    num_vpn_users = 12
     counter_challenges, counter_challenges_vm = add_challenges(url, token)
     counter_teams = add_users(url, token)
     if counter_challenges > 0 and  counter_teams > 0: #Consideremos que a adição dos challenges e dos utilizados funciona se o contador for maior que 0

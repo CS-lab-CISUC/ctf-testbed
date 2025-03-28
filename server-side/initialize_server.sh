@@ -403,8 +403,9 @@ setup_teams(){
   # Creating teams
   echo "Creating teams"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-      create_team "team" "$i"
-    
+      if [ "$i" -ne 3 ]; then
+        create_team "team" "$i"
+      fi
   done
 }
 
@@ -416,8 +417,9 @@ setup_team_rules(){
   # Creating team vms
   echo "Creating teams rules"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
+    if [ "$i" -ne 3 ]; then
       create_team_rules "team" "$i" "0"
-      
+    fi
   done
 }
 
