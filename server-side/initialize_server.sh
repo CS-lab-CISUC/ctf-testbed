@@ -315,6 +315,7 @@ EOF
                 --network_uuid $NETWORK_UUID \
                 --commands \
                 "echo 'Command started...' | sudo tee /tmp/command_config.log" \
+                "nmcli dev show" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.addresses {static_ip}/24 ipv4.method manual" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.gateway {gateway}" \
                 "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '10.1.0.0/24 {gateway}'" \
