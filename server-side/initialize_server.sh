@@ -299,7 +299,6 @@ EOF
 }
 
 create_team_vms(){
-    echo "Creating team vms $2"
     log_file="$INITIAL_DIR/tmp/team_vm_$2.log"
     local subnet_ch_base="$CLIENT_MASK.$2.1"
 : <<EOF
@@ -335,9 +334,8 @@ setup_teams(){
   # Creating teams
   echo "Creating teams"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-      if [ "$i" -ne 3 ]; then
-        create_team "team" "$i"
-      fi
+      create_team "team" "$i"
+    
   done
 }
 
@@ -349,9 +347,8 @@ setup_team_rules(){
   # Creating team vms
   echo "Creating teams rules"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-      if [ "$i" -ne 3 ]; then
-        create_team_rules "team" "$i" "0"
-      fi
+      create_team_rules "team" "$i" "0"
+      
   done
 }
 

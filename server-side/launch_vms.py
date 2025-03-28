@@ -177,6 +177,7 @@ def execute_commands(VM_IP, commands, challenge):
             print(f"[DEBUG] Static IP {challenge['static_ip']} not yet applied. Retrying...")
             time.sleep(5)
         else:
+            
             print(f"[ERROR] Static IP {challenge['static_ip']} not detected after retries.")
             return False
 
@@ -209,10 +210,15 @@ async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, com
     ]
 
     challenge["static_ip"] = static_ip
-    success = execute_commands(temp_ip, formatted_commands, challenge)
 
-    if not success:
-        print(f"[ERROR] Command execution failed or IP not applied. Skipping VIF removal for VM {vm_id}")
+    for attempt in range(5):
+        success = execute_commands(temp_ip, formatted_commands, challenge)
+        if success:
+            break
+        print(f"[WARN] Attempt {attempt+1} failed. Retrying configuration in 5s...")
+        await asyncio.sleep(5)
+    else:
+        print(f"[ERROR] All retries failed for VM {vm_id}. Skipping VIF removal.")
         return
 
     response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VIF"}})
