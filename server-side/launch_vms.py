@@ -316,10 +316,15 @@ if __name__ == "__main__":
 
     threads = []
 
+    print("Runningn Threads")
+     
+    for idx, challenge in enumerate(challenges):
+        thread = threading.Thread(target=run_thread, args=(args,config,challenge, idx))
+        threads.append(thread)
+        thread.start()
 
-    for idx, challenge in enumerate(config.get("challenges", [])):
-        print(challenge.get('name'))
-        run_thread(args, config, challenge, idx)
+    for thread in threads:
+        thread.join()
 
    
 
