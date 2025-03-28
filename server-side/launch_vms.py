@@ -318,6 +318,7 @@ if __name__ == "__main__":
 
 
     for idx, challenge in enumerate(config.get("challenges", [])):
+        print(challenge.get('name'))
         run_thread(args, config, challenge, idx)
 
    
