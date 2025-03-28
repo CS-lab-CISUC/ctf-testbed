@@ -11,8 +11,28 @@
         "name": "Team 3",
         "password": "joseantunes"
     },
-    "Team_4": {
-        "name": "Team 4",
+    "Team_5": {
+        "name": "Team 5",
+        "password": "joseantunes"
+    },
+    "Team_6": {
+        "name": "Team 6",
+        "password": "joseantunes"
+    },
+    "Team_7": {
+        "name": "Team 7",
+        "password": "joseantunes"
+    },
+    "Team_8": {
+        "name": "Team 8",
+        "password": "joseantunes"
+    },
+    "Team_9": {
+        "name": "Team 9",
+        "password": "joseantunes"
+    },
+    "Team_10": {
+        "name": "Team 10",
         "password": "joseantunes"
     }
 }
