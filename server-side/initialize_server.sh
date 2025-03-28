@@ -361,10 +361,9 @@ setup_team_vms(){
   echo "Creating teams vms"
   pids=()
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-      if [ "$i" -ne 3 ]; then
-          create_team_vms "team" "$i" &
-          pids+=($!)
-      fi
+      create_team_vms "team" "$i" &
+      pids+=($!)
+      
   done
 
   # Wait for all background jobs to finish
