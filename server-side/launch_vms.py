@@ -316,7 +316,7 @@ if __name__ == "__main__":
 
     threads = []
 
-    print("Runningn Threads")
+    print(f"Runningn Challenges Threads {challenges}")
      
     for idx, challenge in enumerate(challenges):
         thread = threading.Thread(target=run_thread, args=(args,config,challenge, idx))
