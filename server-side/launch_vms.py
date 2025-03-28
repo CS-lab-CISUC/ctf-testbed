@@ -141,6 +141,12 @@ def send_command(shell, command, password=None):
 
     return output
 
+# Espera até que a interface 'Wired connection 1' tenha o IP estático atribuído
+def check_static_ip(ssh, expected_ip):
+    stdin, stdout, stderr = ssh.exec_command("ip addr show")
+    output = stdout.read().decode()
+    return expected_ip in output
+
 
 def execute_commands(VM_IP, commands, challenge):
     try:
@@ -164,12 +170,24 @@ def execute_commands(VM_IP, commands, challenge):
             for command in challenge_commands:
                 send_command(shell, command, password=challenge.get('password'))
 
+        for attempt in range(5):
+            if check_static_ip(ssh, challenge["static_ip"]):
+                print(f"[DEBUG] Static IP {challenge['static_ip']} successfully verified.")
+                break
+            print(f"[DEBUG] Static IP {challenge['static_ip']} not yet applied. Retrying...")
+            time.sleep(5)
+        else:
+            print(f"[ERROR] Static IP {challenge['static_ip']} not detected after retries.")
+            return False
+
         shell.close()
         ssh.close()
         print(f"[DEBUG] Commands executed successfully!")
+        return True
 
     except Exception as e:
         print(f"[ERROR] Failed to execute commands on {VM_IP}: {e}")
+        return False
 
 
 
@@ -178,7 +196,6 @@ def execute_commands(VM_IP, commands, challenge):
 
 
 async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, commands,challenge):
-    """Waits for VM readiness and configures the network"""
     if not await wait_for_vm_ready(ws, vm_id):
         return
 
@@ -186,28 +203,28 @@ async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, com
     if not temp_ip or not await wait_for_ssh(temp_ip,challenge):
         return
 
-    
     formatted_commands = [
         cmd.replace("{static_ip}", static_ip).replace("{interface_name}", interface_name).replace("{gateway}", gateway)
         for cmd in commands
     ]
 
-    execute_commands(temp_ip, formatted_commands,challenge)
+    challenge["static_ip"] = static_ip
+    success = execute_commands(temp_ip, formatted_commands, challenge)
 
-    
+    if not success:
+        print(f"[ERROR] Command execution failed or IP not applied. Skipping VIF removal for VM {vm_id}")
+        return
+
     response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VIF"}})
     if response and "result" in response:
- 
-         for vif_id, vif_info in response["result"].items():
-             vif_vm_id = vif_info.get("$VM")  
-             vif_network_id = vif_info.get("$network")  
- 
- 
-             if vif_vm_id == vm_id and vif_network_id == TEMP_NETWORK_UUID:  
-                 print(f"[DEBUG] Removing Temporary VIF ({vif_id}) from VM {vm_id}")
-                 await send_rpc(ws, "vif.delete", {"id": vif_id})
-                 return
- 
+        for vif_id, vif_info in response["result"].items():
+            vif_vm_id = vif_info.get("$VM")
+            vif_network_id = vif_info.get("$network")
+            if vif_vm_id == vm_id and vif_network_id == TEMP_NETWORK_UUID:
+                print(f"[DEBUG] Removing Temporary VIF ({vif_id}) from VM {vm_id}")
+                await send_rpc(ws, "vif.delete", {"id": vif_id})
+                return
+
     print(f"[ERROR] Could not find Temporary VIF for VM {vm_id}")
 
 async def get_existing_teams(ws):
