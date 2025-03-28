@@ -211,7 +211,47 @@ def add_users(url, token,users_file="users.json",teams_file="teams.json"):
 #######################################################       Main      ############################################################################################################################################################
 ################################################################################################################################################################################################################################################
 
+def cleanup(url, token):
+    headers = {
+        "Authorization": f"Token {token}",
+        "Content-Type": "application/json"
+    }
 
+    # Session creation
+    session = requests.Session()
+    session.headers.update(headers)
+
+    # Challenge cleanup
+    response = session.get(f"{url}/challenges")
+    if response.status_code == 200:
+        challenges = response.json().get("data")
+        for challenge in challenges:
+            r = session.delete(f"{url}/challenges/{challenge['id']}")
+            print(f"Deleted challenge id: {challenge['id']}, Status: {r.status_code}")
+    else:
+        print(f"Error obtaining users - {response.status_code} {response.text}")
+
+    # Team cleaning
+    response = session.get(f"{url}/teams")
+    if response.status_code == 200:
+        teams = response.json().get("data")
+        for team in teams:
+            r = session.delete(f"{url}/teams/{team['id']}")
+            print(f"Deleted team id: {team['id']}, Status: {r.status_code}")
+    else:
+        print(f"Error obtaining teams - {response.status_code} {response.text}")
+
+    # Users cleanup
+    response = session.get(f"{url}/users")
+    if response.status_code == 200:
+        users = response.json().get("data")
+        for user in users:
+            r = session.delete(f"{url}/users/{user['id']}")
+            print(f"Deleted user id: {user['id']}, Status: {r.status_code}")
+    else:
+        print(f"Error obtaining users - {response.status_code} {response.text}")
+
+    print("Cleanup completo!")
 
 def main():
     load_dotenv()  
@@ -222,7 +262,10 @@ def main():
         print("Erro: CTFD_URL ou CTFD_TOKEN não definidos no .env")
         return
 
-        
+    
+    print("A limpar dados existentes")
+
+    cleanup(url,token)
     # counter_teams = counter_challenges = counter_challenges_vm = 1
     # num_vpn_users = 3
     counter_challenges, counter_challenges_vm = add_challenges(url, token)
