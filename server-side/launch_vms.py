@@ -118,47 +118,36 @@ def execute_commands(VM_IP, commands, challenge):
         print(f"[DEBUG] Connecting to {VM_IP} as {challenge.get('user')}...")
         ssh.connect(VM_IP, username=challenge.get('user'), password=challenge.get('password'))
 
-        shell = ssh.invoke_shell()
-        time.sleep(1)
-        initial_output = shell.recv(1024).decode()
-        print(f"[DEBUG] Initial Shell Output:\n{initial_output}")
+        def run_command(command):
+            # Comando com sudo e password via stdin (mais estável que shell interativo)
+            full_cmd = f"echo '{challenge.get('password')}' | sudo -S {command}"
+            print(f"[DEBUG] Executing command: {full_cmd}")
+            stdin, stdout, stderr = ssh.exec_command(full_cmd, get_pty=True)
+            stdout.channel.settimeout(15)
+            stderr.channel.settimeout(15)
+
+            out = stdout.read().decode()
+            err = stderr.read().decode()
+
+            print(f"[DEBUG] STDOUT:\n{out}")
+            if err:
+                print(f"[DEBUG] STDERR:\n{err}")
 
         # Run default commands
         for command in commands:
-            print(f"[DEBUG] Executing default command: {command}")
-            shell.send(command + "\n")
-            time.sleep(1)
-            output = shell.recv(4096).decode()
-            print(f"[DEBUG] Command Output:\n{output}")
-
-            if "[sudo] password for" in output:
-                print("[DEBUG] Detected sudo password prompt, entering password...")
-                shell.send(challenge.get('password') + "\n")
-                time.sleep(1)
-                output = shell.recv(4096).decode()
-                print(f"[DEBUG] Post-Password Output:\n{output}")
+            run_command(command)
 
         challenge_commands = challenge.get("commands", [])
         if isinstance(challenge_commands, list):
             for command in challenge_commands:
-                print(f"[DEBUG] Executing challenge-specific command: {command}")
-                shell.send(command + "\n")
-                time.sleep(1)
-                output = shell.recv(4096).decode()
-                print(f"[DEBUG] Command Output:\n{output}")
-
-                if "[sudo] password for" in output:
-                    print("[DEBUG] Detected sudo password prompt, entering password...")
-                    shell.send(challenge.get('password') + "\n")
-                    time.sleep(1)
-                    output = shell.recv(4096).decode()
-                    print(f"[DEBUG] Post-Password Output:\n{output}")
+                run_command(command)
 
         ssh.close()
         print(f"[DEBUG] Commands executed successfully!")
 
     except Exception as e:
-        print(f"[ERROR] Failed to execute commands: {e}")
+        print(f"[ERROR] Failed to execute commands on {VM_IP}: {e}")
+
 
 
 
