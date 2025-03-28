@@ -8,6 +8,7 @@ https://cs-lab.cisuc.uc.pt/shiftappens25/
 ## Arquitetura
 
 bla bla
+![image](https://github.com/user-attachments/assets/38748010-9dda-4218-a328-a016d81e7c93)
 
 
 ## Requirements
