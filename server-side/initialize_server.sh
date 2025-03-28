@@ -422,25 +422,16 @@ setup_team_rules(){
 }
 
 setup_team_vms(){
-  echo "Creating teams VMs in controlled parallel mode"
-  MAX_PARALLEL=3  # ou 3, conforme tua infraestrutura
-  running=0
-  declare -a pids=()
+  # Creating team rules
 
+  echo "Creating teams vms"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-      create_team_vms "team" "$i" &
-      pids+=($!)
-      ((running+=1))
-
-      if [[ $running -ge $MAX_PARALLEL ]]; then
-          wait -n
-          ((running-=1))
+      if [ "$i" -ne 3 ]; then
+        create_team_vms "team" "$i"
       fi
   done
-
-  # Esperar que o resto termine
-  wait
 }
+
 
 
 # ----------------------------------------------
