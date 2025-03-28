@@ -110,43 +110,45 @@ async def wait_for_ssh(ip,challenge , max_retries=50, delay=10):
             await asyncio.sleep(delay)
     return False
 
+def run_command(ssh, command, challenge):
+    try:
+        wrapped = f"echo '{challenge.get('password')}' | sudo -S bash -c \"{command}\""
+        print(f"[DEBUG] Executing command: {wrapped}")
+        stdin, stdout, stderr = ssh.exec_command(wrapped, get_pty=True)
+        out = stdout.read().decode()
+        err = stderr.read().decode()
+        print(f"[DEBUG] STDOUT:\n{out}")
+        if err:
+            print(f"[DEBUG] STDERR:\n{err}")
+        return True
+    except Exception as e:
+        print(f"[ERROR] Exception running command: {e}")
+        return False
+
+
+
 def execute_commands(VM_IP, commands, challenge):
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
         print(f"[DEBUG] Connecting to {VM_IP} as {challenge.get('user')}...")
         ssh.connect(VM_IP, username=challenge.get('user'), password=challenge.get('password'))
 
-        def run_command(command):
-            # Comando com sudo e password via stdin (mais estável que shell interativo)
-            full_cmd = f"echo '{challenge.get('password')}' | sudo -S {command}"
-            print(f"[DEBUG] Executing command: {full_cmd}")
-            stdin, stdout, stderr = ssh.exec_command(full_cmd, get_pty=True)
-            stdout.channel.settimeout(15)
-            stderr.channel.settimeout(15)
-
-            out = stdout.read().decode()
-            err = stderr.read().decode()
-
-            print(f"[DEBUG] STDOUT:\n{out}")
-            if err:
-                print(f"[DEBUG] STDERR:\n{err}")
-
-        # Run default commands
         for command in commands:
-            run_command(command)
+            if not run_command(ssh, command, challenge):
+                print(f"[ERROR] Failed to execute default command: {command}")
 
         challenge_commands = challenge.get("commands", [])
         if isinstance(challenge_commands, list):
             for command in challenge_commands:
-                run_command(command)
+                if not run_command(ssh, command, challenge):
+                    print(f"[ERROR] Failed to execute challenge-specific command: {command}")
 
         ssh.close()
         print(f"[DEBUG] Commands executed successfully!")
-
     except Exception as e:
         print(f"[ERROR] Failed to execute commands on {VM_IP}: {e}")
+
 
 
 
