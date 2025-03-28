@@ -1,0 +1,21 @@
+{
+    "Challenge LLM": {
+        "name": "LLM challenge",
+        "category": "",
+        "description": "LLM Challenge",
+        "value": 500,
+        "state": "visible",
+        "type": "standard",
+        "max_attempts": 0,
+        "hint": "XXX",
+        "hint_cost": 250,
+        "flag": "Test_Flag",
+        "flag_type": "static",
+        "file_path": null,
+        "template_uuid": "60e77e42-a119-1a81-3980-066c0db51105",
+        "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
+        "user":"ctf",
+        "password":"ctf",
+        "commands": []
+    }
+}

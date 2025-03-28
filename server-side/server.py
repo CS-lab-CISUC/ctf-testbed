@@ -7,6 +7,7 @@ import glob
 import shutil
 import tempfile
 import zipfile
+import copy
 
 app = Flask(__name__)
 
@@ -25,16 +26,20 @@ def create_vms():
     os.makedirs(output_dir)
 
     challenges = data.get("challenges")
+    organization_vms = data.get("organization_vms")
     num_teams = data.get("num_teams")
+    num_users = data.get("num_users")
 
-    if not isinstance(challenges, list) or not isinstance(num_teams, int):
+    if not isinstance(challenges, list) or not isinstance(num_teams, int) or not isinstance(num_users, int):
         return jsonify({"error": "Estrutura inválida"}), 400
 
     print(f"Número de equipas: {num_teams}")
-    launch_config = {
-        "subnet_base": "192.168",
-        "challenges": []
+    print(f"Número de users: {num_users}")
+    launch_config_temp = {
+        "vms": []
     }
+
+    launch_config = copy.deepcopy(launch_config_temp)
 
     for challenge in challenges:
         name = challenge.get("name")
@@ -48,7 +53,7 @@ def create_vms():
             if not challenge.get("ImAModule", False):
                 print(f"Criar VM para challenge '{name}' com template '{template_uuid}' e rede '{network_uuid}'")
 
-                launch_config["challenges"].append({
+                launch_config["vms"].append({
                     "name": name,
                     "description": f"Created for Shift CTF| {challenge.get('description')}",
                     "template_uuid": template_uuid,
@@ -64,13 +69,44 @@ def create_vms():
         else:
             print(f"Challenge '{name}' não requer VM.")
 
-    with open("launch_vms-config.json", "w") as f:
+    with open("challenges_vms-config.json", "w") as f:
         json.dump(launch_config, f, indent=4)
 
-    print("Ficheiro 'launch_vms-config.json' criado com sucesso!")
+    print("Ficheiro 'challenges_vms-config.json' criado com sucesso!")
+
+    launch_config = copy.deepcopy(launch_config_temp)
+
+    for organization_vm in organization_vms:
+        name = organization_vm.get("name")
+        template_uuid = organization_vm.get("template_uuid")
+        network_uuid = organization_vm.get("network_uuid")
+        user = organization_vm.get("user")
+        password = organization_vm.get("password")
+        commands = organization_vm.get("commands")
+
+        if template_uuid and network_uuid:
+            print(f"Criar VM para organization_vm '{name}' com template '{template_uuid}' e rede '{network_uuid}'")
+
+            launch_config["vms"].append({
+                "name": name,
+                "description": f"Created for Shift CTF| {organization_vm.get('description')}",
+                "template_uuid": template_uuid,
+                "network_uuid": network_uuid,
+                "user": user,
+                "password": password,
+                "commands": commands
+            })
+        else:
+            exit(f"organization_vm '{name}' não tem os detalhes necessários.")
+
+    with open("organization_vms-config.json", "w") as f:
+        json.dump(launch_config, f, indent=4)
+
+    print("Ficheiro 'organization_vms-config.json' criado com sucesso!")
 
     env = os.environ.copy()
     env["TEAMS_COUNT"] = str(num_teams)
+    env["TEAMS_USERS_COUNT"] = str(num_users)
 
     script_command = "bash initialize_server.sh"
     log_file = "log.txt"
@@ -99,6 +135,22 @@ def create_vms():
                     template_challenge_map.setdefault(template_uuid, []).append(ch["name"])
 
             for file_path in glob.glob(os.path.join(output_dir, "team_*.json")):
+                with open(file_path, "r") as f:
+                    entry = json.load(f)
+                    updated_entry = {}
+                    for team, challenges_dict in entry.items():
+                        updated_entry[team] = {}
+                        for challenge_name, ip in challenges_dict.items():
+                            template_uuid = None
+                            for ch in challenges:
+                                if ch["name"] == challenge_name:
+                                    template_uuid = ch.get("template_uuid")
+                                    break
+                            names = template_challenge_map.get(template_uuid, [challenge_name])
+                            updated_entry[team][json.dumps(names)] = ip
+                    teams_data.update(updated_entry)
+
+            for file_path in glob.glob(os.path.join(output_dir, "organization_*.json")):
                 with open(file_path, "r") as f:
                     entry = json.load(f)
                     updated_entry = {}

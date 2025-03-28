@@ -16,8 +16,8 @@ VARS["SERVER_IP"]="${VARS["SERVER_MASK"]}.0"
 VARS["CLIENT_MASK"]="10"
 VARS["SERVER_HOST_IP"]="${VARS["SERVER_MASK"]}.1"
 VARS["SERVER_PUBLIC_IP"]="10.3.3.232"
-VARS["TEAMS_COUNT"]="${TEAMS_COUNT:-3}"
-VARS["TEAMS_USERS_COUNT"]=5
+VARS["TEAMS_COUNT"]="${TEAMS_COUNT:-1}"
+VARS["TEAMS_USERS_COUNT"]="${TEAMS_USERS_COUNT:-3}"
 VARS["SERVER_VPN_NAME"]="ctf_orch"
 VARS["SERVER_OUT_INTERFACE"]="enX0"
 VARS["SERVER_SUBNET_INTERFACE_BASE"]="enX"
@@ -97,6 +97,10 @@ setup_openvpn() {
   chmod +x $INITIAL_DIR/$TC_FILE
   sudo cp $INITIAL_DIR/$TC_FILE $VPN_DIR
 
+  local subnet_org_base="$CLIENT_MASK.0.1"
+  local subnet_org="$subnet_org_base.0"
+  local subnet_org_w_mask="$subnet_org/24"
+
   cat > $VPN_DIR/server.conf <<EOF
 port 1194
 proto udp
@@ -118,6 +122,7 @@ client-config-dir $CLIENTS_CCD_DIR
 server $SERVER_IP 255.255.255.0
 learn-address $TC_FILE
 script-security 3
+push 'route $subnet_org 255.255.255.0'
 EOF
 }
 
@@ -156,6 +161,11 @@ create_user() {
     local username="$1-$2-$3"
     local client_ip="$subnet_vpn_client_base.$j"
     local team_folder="$CLIENTS_DIR/$1-$2"
+
+    local subnet_org_base="$CLIENT_MASK.0.1"
+    local subnet_org="$subnet_org_base.0"
+    local subnet_org_w_mask="$subnet_org/24"
+
     # Create VPN user
     echo "Creating user $username"
     echo "yes" | ./easyrsa build-client-full $username nopass
@@ -207,18 +217,21 @@ case "\$OS" in
         # ip route add default via $client_ip dev tun0
         ip route add $SERVER_HOST_IP via $client_ip
         ip route add $subnet_ch_w_mask via $client_ip
+        ip route add $subnet_org_w_mask via $client_ip
         ;;
     Darwin)
         echo "Detected OS: macOS"
         # sudo route -n add default $client_ip
         /sbin/route -n add $SERVER_HOST_IP $client_ip
         /sbin/route -n add $subnet_ch_w_mask $client_ip
+        /sbin/route -n add $subnet_org_w_mask $client_ip
         ;;
     MINGW*|CYGWIN*|MSYS*|Windows)
         echo "Detected OS: Windows"
         # netsh interface ipv4 add route 0.0.0.0/0 $client_ip
         netsh interface ipv4 add route $SERVER_HOST_IP $client_ip
         netsh interface ipv4 add route $subnet_ch_w_mask $client_ip
+        netsh interface ipv4 add route $subnet_org_w_mask $client_ip
         ;;
     *)
         echo "Unsupported OS: \$OS"
@@ -232,6 +245,56 @@ EOF
 #    sqlite3 $DB_FILE "INSERT INTO users (username, config) VALUES ('$username', '$team_folder/$username.ovpn');"
     echo "User $username successfully created!"
 }
+
+
+# ----------------------------------------------
+# Create Organization VMS
+# ----------------------------------------------
+setup_organization_vms(){
+
+    local subnet_org_base="$CLIENT_MASK.0.1"
+    local subnet_org="$subnet_org_base.0"
+    local subnet_org_w_mask="$subnet_org/24"
+
+    local subnet_interface=$SERVER_SUBNET_INTERFACE_BASE$(($TEAMS_COUNT+1))
+
+    # defining IPs; this assumes a static approach, where the interface name for the teams is > enX0
+    sudo ip link set $subnet_interface up
+    sudo ip addr add "$subnet_org_base.1/24" dev $subnet_interface
+    sudo ip route add $subnet_org_w_mask via $subnet_org_base.1 dev $subnet_interface
+
+    # Set iptables for organization subnet and outbound traffic
+    sudo iptables -A FORWARD -s $subnet_org_w_mask -o $SERVER_OUT_INTERFACE -j ACCEPT # FORWWARD exterior
+    sudo iptables -A FORWARD -i $SERVER_OUT_INTERFACE -d $subnet_org_w_mask -m state --state ESTABLISHED,RELATED -j ACCEPT  # allow return
+    sudo iptables -t nat -A POSTROUTING -s $subnet_org_w_mask -o $SERVER_OUT_INTERFACE -j MASQUERADE
+
+
+: <<EOF
+EOF
+    echo "Initializing organization VMs (might take a while)"
+    time /home/cslab/miniconda3/bin/python $INITIAL_DIR/launch_vms.py \
+                --prefix $EVENT_NAME \
+                --env="$INITIAL_DIR/.env" \
+                --team "Organization VM" \
+                --config "$INITIAL_DIR/organization_vms-config.json" \
+                --subnet "$subnet_org_base" \
+                --interface_name "Wired connection 1" \
+                --network_uuid $NETWORK_UUID \
+                --commands \
+                "echo 'Command started...' | sudo tee /tmp/command_config.log" \
+                "sudo nmcli con mod 'Wired connection 1' ipv4.addresses {static_ip}/24 ipv4.method manual" \
+                "sudo nmcli con mod 'Wired connection 1' ipv4.gateway {gateway}" \
+                "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '10.0.0.0/24 {gateway}'" \
+                "sudo nmcli con up 'Wired connection 1'" \
+                "sudo nmcli con mod 'Wired connection 1' ipv4.dns '$(resolvectl status $SERVER_OUT_INTERFACE | grep 'Current DNS Server:' | awk '{print $NF}')'"\
+                "sudo systemctl restart NetworkManager" \
+                "echo 'Network configured successfully'" |  sudo tee setup_organization_vms_network_config.log
+
+                # f"ip addr add {STATIC_IP}/24 dev eth0",
+                # f"ip route add {GATEWAY} dev eth0",
+                # "ip route add 10.1.0.0/24 via 10.1.1.1 dev eth0",
+}
+
 
 
 
@@ -248,6 +311,10 @@ create_team_rules() {
     local subnet_ch_w_mask="$subnet_ch/24"
     local j
     cd $EASY_RSA_DIR
+
+    local subnet_org_base="$CLIENT_MASK.0.1"
+    local subnet_org="$subnet_org_base.0"
+    local subnet_org_w_mask="$subnet_org/24"
 
     for ((j = 1; j <= $TEAMS_USERS_COUNT; j++)); do
         create_user "$1" "$2" "$j" "$subnet_ch_base" "$subnet_ch" "$subnet_ch_w_mask" "$subnet_vpn_clients_base"
@@ -282,12 +349,14 @@ EOF
 
     # Set iptables for VPN clients subnet and outbound traffic
     sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -d $subnet_ch_w_mask -j ACCEPT #  FORWARD subnet team VMs
+    sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -d $subnet_org_w_mask -j ACCEPT #  FORWARD subnet team VMs
     sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -o $SERVER_OUT_INTERFACE -j ACCEPT #  FORWARD exterior
     sudo iptables -A FORWARD -i $SERVER_OUT_INTERFACE -d $subnet_vpn_clients_w_mask -m state --state ESTABLISHED,RELATED -j ACCEPT  # allow return
     sudo iptables -t nat -A POSTROUTING -s $subnet_vpn_clients_w_mask -o $SERVER_OUT_INTERFACE -j MASQUERADE
 
     # Set iptables for team subnet and outbound traffic
     sudo iptables -A FORWARD -s $subnet_ch_w_mask -d $subnet_vpn_clients_w_mask -j ACCEPT # FORWARD subnet team VPN clients
+    sudo iptables -A FORWARD -s $subnet_org_w_mask -d $subnet_vpn_clients_w_mask -j ACCEPT # FORWARD subnet team VPN clients
     sudo iptables -A FORWARD -s $subnet_ch_w_mask -o $SERVER_OUT_INTERFACE -j ACCEPT # FORWWARD exterior
     sudo iptables -A FORWARD -i $SERVER_OUT_INTERFACE -d $subnet_ch_w_mask -m state --state ESTABLISHED,RELATED -j ACCEPT  # allow return
     sudo iptables -t nat -A POSTROUTING -s $subnet_ch_w_mask -o $SERVER_OUT_INTERFACE -j MASQUERADE
@@ -308,7 +377,7 @@ EOF
                 --prefix $EVENT_NAME \
                 --env="$INITIAL_DIR/.env" \
                 --team "Team $2" \
-                --config "$INITIAL_DIR/launch_vms-config.json" \
+                --config "$INITIAL_DIR/challenges_vms-config.json" \
                 --subnet "$subnet_ch_base" \
                 --interface_name "Wired connection 1" \
                 --network_uuid $NETWORK_UUID \
@@ -316,11 +385,11 @@ EOF
                 "echo 'Command started...' | sudo tee /tmp/command_config.log" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.addresses {static_ip}/24 ipv4.method manual" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.gateway {gateway}" \
-                "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '10.1.0.0/24 {gateway}'" \
+                "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '10.$2.0.0/24 {gateway}'" \
                 "sudo nmcli con up 'Wired connection 1'" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.dns '$(resolvectl status $SERVER_OUT_INTERFACE | grep 'Current DNS Server:' | awk '{print $NF}')'"\
                 "sudo systemctl restart NetworkManager" \
-                "echo 'Network configured successfully' | sudo tee /tmp/network_config.log" 
+                "echo 'Network configured successfully'" | sudo tee create_team_vms_network_config.log
 
                 # f"ip addr add {STATIC_IP}/24 dev eth0",
                 # f"ip route add {GATEWAY} dev eth0",
@@ -407,6 +476,7 @@ if [ "$flag_used" = false ]; then
   setup_routes_firewall_network
   setup_team_rules
   start_openvpn
+  setup_organization_vms
   setup_team_vms
 fi
 

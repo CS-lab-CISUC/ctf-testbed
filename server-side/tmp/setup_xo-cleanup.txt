@@ -1,3 +1,0 @@
-[DEBUG] No network found with the name 'SHIFT_CTF-NETWORK'.
-None
-None
