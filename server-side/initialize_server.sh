@@ -13,14 +13,18 @@ VARS["CLIENTS_DIR"]="${VARS["VPN_DIR"]}/client"
 VARS["CLIENTS_CCD_DIR"]="${VARS["VPN_DIR"]}/ccd"
 VARS["SERVER_MASK"]="10.0.0"
 VARS["SERVER_IP"]="${VARS["SERVER_MASK"]}.0"
+VARS["SERVER_TEAM_VIF_IP"]="${VARS["SERVER_MASK"]}.254"
 VARS["CLIENT_MASK"]="10"
 VARS["SERVER_HOST_IP"]="${VARS["SERVER_MASK"]}.1"
 VARS["SERVER_PUBLIC_IP"]="10.3.3.232"
-VARS["TEAMS_COUNT"]="${TEAMS_COUNT:-1}"
+VARS["TEAMS_COUNT"]="${TEAMS_COUNT:-2}"
 VARS["TEAMS_USERS_COUNT"]="${TEAMS_USERS_COUNT:-3}"
 VARS["SERVER_VPN_NAME"]="ctf_orch"
 VARS["SERVER_OUT_INTERFACE"]="enX0"
+VARS["SERVER_ADDITIONAL_VIFS"]="2"
 VARS["SERVER_SUBNET_INTERFACE_BASE"]="enX"
+VARS["SERVER_SUBNET_ORG_INTERFACE"]="enX1"
+VARS["SERVER_SUBNET_DEFAULT_INTERFACE"]="enX2"
 VARS["SERVER_LOG"]="server-openvpn-status.log"
 VARS["CLIENT_LOG"]="client-openvpn-status.log"
 VARS["TC_FILE"]="traffic_shaping.sh"
@@ -57,9 +61,10 @@ cleanup() {
   sudo tc qdisc del dev tun0 root
   sudo tc qdisc del dev tun0 ingress
 
-  sudo route -n | grep "^$CLIENT_MASK\."  # TODO: remove installed routes; careful with existing routes..
+  sudo route -n | grep "^$CLIENT_MASK\."  # TODO: remove installed routes; careful with existing routes.., indeed this removes some routes that are not established afterwards, not sure why
+  sudo ip route add 10.9.0.0/24 dev enX0  # add route for DEI VPN clients
   sudo route del -net 10.0.0.0 netmask 255.0.0.0
-  /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='cleanup' --vm_prefix=$EVENT_NAME --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":"'"$TEAMS_COUNT"'","pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-cleanup.txt
+  /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='cleanup' --prefix=$EVENT_NAME --vm_prefix=$TEAM_VM_PREFIX --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":"'"$TEAMS_COUNT"'","pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'","add_vifs":"'"$SERVER_ADDITIONAL_VIFS"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-cleanup.txt
 }
 
 
@@ -130,6 +135,12 @@ EOF
 # ----------------------------------------------
 # Routing, firewall, network
 # ----------------------------------------------
+load_network_uuid(){
+  content=$(cat $INITIAL_DIR/tmp/temp_new_network.txt)
+  NETWORK_UUID=$(echo "$content" | jq -r '.network_id')
+  echo "Created network uuid: $NETWORK_UUID"
+}
+
 setup_routes_firewall_network(){
   # Enabling IP forwarding
   echo "Enabling IP forwarding..."
@@ -142,11 +153,37 @@ setup_routes_firewall_network(){
   sudo iptables -A INPUT -p udp --dport 1194 -j ACCEPT
   sudo iptables -A FORWARD -s $SERVER_IP/24 -j ACCEPT
 
-  /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='setup' --vm_prefix=$EVENT_NAME --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":'$TEAMS_COUNT',"pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-setup.txt
-  content=$(cat $INITIAL_DIR/tmp/temp_new_network.txt)
-  NETWORK_UUID=$(echo "$content" | jq -r '.network_id')
-  echo "Created network uuid: $NETWORK_UUID"
-  rm $INITIAL_DIR/tmp/temp_new_network.txt
+  /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='setup' --prefix=$EVENT_NAME --vm_prefix=$TEAM_VM_PREFIX --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":'$TEAMS_COUNT',"pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'","add_vifs":"'"$SERVER_ADDITIONAL_VIFS"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-setup.txt
+  load_network_uuid
+  # rm $INITIAL_DIR/tmp/temp_new_network.txt
+
+
+
+
+  # setup org subnet
+  local subnet_org_base="$CLIENT_MASK.0.1"
+  local subnet_org="$subnet_org_base.0"
+  local subnet_org_w_mask="$subnet_org/24"
+
+  # local subnet_interface=$SERVER_SUBNET_INTERFACE_BASE$(($TEAMS_COUNT+1))
+  local subnet_interface=$SERVER_SUBNET_ORG_INTERFACE
+
+  # defining IPs; this assumes a static approach, where the interface name for the teams is > enX0
+  sudo ip link set $subnet_interface up
+  sudo ip addr add "$subnet_org_base.1/24" dev $subnet_interface
+  sudo ip route add $subnet_org_w_mask via $subnet_org_base.1 dev $subnet_interface
+
+  # Set iptables for organization subnet and outbound traffic
+  sudo iptables -A FORWARD -s $subnet_org_w_mask -o $SERVER_OUT_INTERFACE -j ACCEPT # FORWWARD exterior
+  sudo iptables -A FORWARD -i $SERVER_OUT_INTERFACE -d $subnet_org_w_mask -m state --state ESTABLISHED,RELATED -j ACCEPT  # allow return
+  sudo iptables -t nat -A POSTROUTING -s $subnet_org_w_mask -o $SERVER_OUT_INTERFACE -j MASQUERADE
+
+
+  # setup team NIC and subnet
+  # setting up NIC that will be used for all teams VMs; 20250329
+  sudo ip link set $SERVER_SUBNET_DEFAULT_INTERFACE up
+  sudo ip addr add "$SERVER_TEAM_VIF_IP/8" dev $SERVER_SUBNET_DEFAULT_INTERFACE
+
 }
 
 
@@ -251,29 +288,15 @@ EOF
 # Create Organization VMS
 # ----------------------------------------------
 setup_organization_vms(){
-
     local subnet_org_base="$CLIENT_MASK.0.1"
-    local subnet_org="$subnet_org_base.0"
-    local subnet_org_w_mask="$subnet_org/24"
-
-    local subnet_interface=$SERVER_SUBNET_INTERFACE_BASE$(($TEAMS_COUNT+1))
-
-    # defining IPs; this assumes a static approach, where the interface name for the teams is > enX0
-    sudo ip link set $subnet_interface up
-    sudo ip addr add "$subnet_org_base.1/24" dev $subnet_interface
-    sudo ip route add $subnet_org_w_mask via $subnet_org_base.1 dev $subnet_interface
-
-    # Set iptables for organization subnet and outbound traffic
-    sudo iptables -A FORWARD -s $subnet_org_w_mask -o $SERVER_OUT_INTERFACE -j ACCEPT # FORWWARD exterior
-    sudo iptables -A FORWARD -i $SERVER_OUT_INTERFACE -d $subnet_org_w_mask -m state --state ESTABLISHED,RELATED -j ACCEPT  # allow return
-    sudo iptables -t nat -A POSTROUTING -s $subnet_org_w_mask -o $SERVER_OUT_INTERFACE -j MASQUERADE
-
 
 : <<EOF
 EOF
     echo "Initializing organization VMs (might take a while)"
-    time /home/cslab/miniconda3/bin/python $INITIAL_DIR/launch_vms.py \
+    echo "$(time /home/cslab/miniconda3/bin/python $INITIAL_DIR/launch_vms.py \
+                --base_dir $INITIAL_DIR \
                 --prefix $EVENT_NAME \
+                --vm_prefix $TEAM_VM_PREFIX \
                 --env="$INITIAL_DIR/.env" \
                 --team "Organization VM" \
                 --config "$INITIAL_DIR/organization_vms-config.json" \
@@ -288,7 +311,8 @@ EOF
                 "sudo nmcli con up 'Wired connection 1'" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.dns '$(resolvectl status $SERVER_OUT_INTERFACE | grep 'Current DNS Server:' | awk '{print $NF}')'"\
                 "sudo systemctl restart NetworkManager" \
-                "echo 'Network configured successfully'" |  sudo tee setup_organization_vms_network_config.log
+                "echo 'Network configured successfully'")" |  sudo tee $INITIAL_DIR/tmp/setup_organization_vms_network_config.log
+
 
                 # f"ip addr add {STATIC_IP}/24 dev eth0",
                 # f"ip route add {GATEWAY} dev eth0",
@@ -320,6 +344,7 @@ create_team_rules() {
         create_user "$1" "$2" "$j" "$subnet_ch_base" "$subnet_ch" "$subnet_ch_w_mask" "$subnet_vpn_clients_base"
     done
 
+    echo "Defining routing rules/rejection $2"
     # Update server.conf to route team subnet
     cat <<EOF | sudo tee -a "$VPN_DIR/server.conf" > /dev/null
 push 'route $subnet_ch 255.255.255.0'
@@ -361,63 +386,72 @@ EOF
     sudo iptables -A FORWARD -i $SERVER_OUT_INTERFACE -d $subnet_ch_w_mask -m state --state ESTABLISHED,RELATED -j ACCEPT  # allow return
     sudo iptables -t nat -A POSTROUTING -s $subnet_ch_w_mask -o $SERVER_OUT_INTERFACE -j MASQUERADE
 
+    # setting VIF for the various teams; 20250329
+    sudo ip route add $subnet_ch_w_mask via $SERVER_TEAM_VIF_IP dev $SERVER_SUBNET_DEFAULT_INTERFACE
+
     # defining IPs; this assumes a static approach, where the interface name for the teams is > enX0
-    sudo ip link set $SERVER_SUBNET_INTERFACE_BASE$2 up
-    sudo ip addr add "$subnet_ch_base.1/24" dev $SERVER_SUBNET_INTERFACE_BASE$2
-    sudo ip route add $subnet_ch_w_mask via $subnet_ch_base.1 dev $SERVER_SUBNET_INTERFACE_BASE$2
+    # sudo ip link set $SERVER_SUBNET_INTERFACE_BASE$2 up
+    # sudo ip addr add "$subnet_ch_base.1/24" dev $SERVER_SUBNET_INTERFACE_BASE$2
+    # sudo ip route add $subnet_ch_w_mask via $subnet_ch_base.1 dev $SERVER_SUBNET_INTERFACE_BASE$2
 }
 
 create_team_vms(){
-    log_file="$INITIAL_DIR/tmp/team_vm_$2.log"
     local subnet_ch_base="$CLIENT_MASK.$2.1"
 : <<EOF
 EOF
     echo "Initializing team $2 VMs (might take a while)"
-    time /home/cslab/miniconda3/bin/python $INITIAL_DIR/launch_vms.py \
+    echo "$(time /home/cslab/miniconda3/bin/python $INITIAL_DIR/launch_vms.py \
+                --base_dir $INITIAL_DIR \
                 --prefix $EVENT_NAME \
+                --vm_prefix $TEAM_VM_PREFIX \
                 --env="$INITIAL_DIR/.env" \
-                --team "Team $2" \
+                --team "$2" \
                 --config "$INITIAL_DIR/challenges_vms-config.json" \
                 --subnet "$subnet_ch_base" \
                 --interface_name "Wired connection 1" \
                 --network_uuid $NETWORK_UUID \
+                --gateway "$SERVER_TEAM_VIF_IP" \
                 --commands \
                 "echo 'Command started...' | sudo tee /tmp/command_config.log" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.addresses {static_ip}/24 ipv4.method manual" \
+                "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '$SERVER_TEAM_VIF_IP/32'" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.gateway {gateway}" \
                 "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '10.$2.0.0/24 {gateway}'" \
                 "sudo nmcli con up 'Wired connection 1'" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.dns '$(resolvectl status $SERVER_OUT_INTERFACE | grep 'Current DNS Server:' | awk '{print $NF}')'"\
                 "sudo systemctl restart NetworkManager" \
-                "echo 'Network configured successfully'" | sudo tee create_team_vms_network_config.log
+                "echo 'Network configured successfully'")" | sudo tee $INITIAL_DIR/tmp/setup_team_$2_vms_network_config.log
 
                 # f"ip addr add {STATIC_IP}/24 dev eth0",
                 # f"ip route add {GATEWAY} dev eth0",
                 # "ip route add 10.1.0.0/24 via 10.1.1.1 dev eth0",
 }
 
-setup_teams(){
-  # Creating a database for VPN users
-  echo "Creating user database..."
-#  sqlite3 $DB_FILE "CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, config TEXT);"
-  # Creating teams
-  echo "Creating teams"
-  for ((i = 1; i <= TEAMS_COUNT; i++)); do
-      if [ "$i" -ne 3 ]; then
-        create_team "team" "$i"
-      fi
-  done
+setup_new_team(){
+  load_network_uuid
+  
+  # TODO: this function is to be used to create additional teams
+  # note that this needs to identify the previous max team, and increment on it
+  # works with flag -f setup_new_team
+  echo $TEAM_VM_PREFIX
+  new_team=$(/home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='check' --prefix=$EVENT_NAME --vm_prefix=$TEAM_VM_PREFIX)
+
+  echo "Existing teams $new_team"
+  ((new_team++))
+  echo "Creating new team $new_team"
+  create_team_rules "team" "$new_team" "0"
+  create_team_vms "team" "$new_team"
 }
 
 setup_team_rules(){
   # Creating a database for VPN users
-#  echo "Creating user database..."
-#  sqlite3 $DB_FILE "CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, config TEXT);"
+  # echo "Creating user database..."
+  # sqlite3 $DB_FILE "CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, config TEXT);"
 
   # Creating team vms
   echo "Creating teams rules"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-    if [ "$i" -ne 3 ]; then
+    if [ "$i" -ne 3 ] && [ "$i" -ne 9 ]; then
       create_team_rules "team" "$i" "0"
     fi
   done
@@ -429,7 +463,7 @@ setup_team_vms() {
   declare -a pids=()
 
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-    if [ "$i" -ne 3 ]; then
+    if [ "$i" -ne 3 ] && [ "$i" -ne 9 ]; then
       (
         echo "[Team $i] Starting..."
         create_team_vms "team" "$i"

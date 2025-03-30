@@ -9,7 +9,7 @@ import json
 ################################################################################################################################################################################################################################################
 
 
-
+num_vpn_users = 3
 
 
 def add_challenges(url, token,challenges_file="challenges.json"):
@@ -253,8 +253,9 @@ def cleanup(url, token):
 
     print("Cleanup completo!")
 
+
 def main():
-    load_dotenv()  
+    load_dotenv()
     url = os.getenv("CTFD_URL")
     token = os.getenv("CTFD_TOKEN")
 
@@ -262,15 +263,13 @@ def main():
         print("Erro: CTFD_URL ou CTFD_TOKEN não definidos no .env")
         return
 
-    
     print("A limpar dados existentes")
 
     cleanup(url,token)
-    # counter_teams = counter_challenges = counter_challenges_vm = 1
-    num_vpn_users = 3
     counter_challenges, counter_challenges_vm = add_challenges(url, token)
     counter_teams = add_users(url, token)
-    if counter_challenges > 0 and  counter_teams > 0: #Consideremos que a adição dos challenges e dos utilizados funciona se o contador for maior que 0
+
+    if counter_challenges > 0 and counter_teams > 0:  # Consideremos que a adição dos challenges e dos utilizados funciona se o contador for maior que 0
         print(f"Counter_challenges = {counter_challenges}, Counter_Challenges_VM = {counter_challenges_vm}")
         print(f"Counter_teams = {counter_teams}")
         session = requests.Session()
@@ -292,10 +291,13 @@ def main():
             "num_users": num_vpn_users
         }
         response = requests.post("http://127.0.0.1:5000/create-vms", json=payload)
-        print("\nResposta do servidor Flask:", response.text)
-
-        with open("create-vms-response.json", "w") as f:
-            json.dump(response.text, f, indent=4)
+        if response.status_code == 200:
+            # Open a file in binary write mode and save the response content as a ZIP file
+            with open("output-create-vms.zip", "wb") as f:
+                f.write(response.content)
+            print("ZIP file has been saved as 'output.zip'")
+        else:
+            print(f"Failed to get response. Status code: {response.status_code}")
 
         session.close()
 

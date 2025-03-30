@@ -3,16 +3,16 @@
         {
             "name": "CH1-NotWorkingTestPurposes",
             "description": "Created for Shift CTF| Kali-de-Teste",
-            "template_uuid": "812dae6a-681e-e034-995e-c5b341236ab3",
+            "template_uuid": "6562a8e3-22d4-b428-ed0c-e2ddd141cc8c",
             "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
-            "user": "kali",
-            "password": "kali",
+            "user": "ctf",
+            "password": "ctf",
             "commands": []
         },
         {
             "name": "CH2-Hard-Challenge Vieira-(Module1)",
             "description": "Created for Shift CTF| Vieira Module 1",
-            "template_uuid": "60e77e42-a119-1a81-3980-066c0db51105",
+            "template_uuid": "6562a8e3-22d4-b428-ed0c-e2ddd141cc8c",
             "network_uuid": "ea5aca40-b7d2-b896-5efd-dce07151d4ba",
             "user": "ctf",
             "password": "ctf",

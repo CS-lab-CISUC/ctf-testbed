@@ -18,6 +18,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Execute command on xo through JSON-RPC")
     parser.add_argument("--tmp", required=True, help="Temp folder")
     parser.add_argument("--env", required=True, help="Env")
+    parser.add_argument("--prefix", required=True, help="Event prefix")
     parser.add_argument("--vm_prefix", required=True, help="VMs prefix")
     parser.add_argument("--action", required=True, help="Action")
     parser.add_argument("--params", nargs='+', required=False, help="Parameters")
@@ -51,7 +52,9 @@ async def connect(args):
             elif args.action == 'setup':
                 results = await setup(ws, args)
 
-            print(results)
+            elif args.action == 'check':
+                results = await get_existing_teams(ws, args)
+
             return results
 
 
@@ -133,7 +136,7 @@ async def deleteVIFs(ws, args, network_id):
                         await send_rpc(ws, "vif.delete", {"id": vif_id})
                         count += 1
 
-        elif args.vm_prefix in name:
+        elif args.prefix in name:
             a = 0
             print(f"[DEBUG] Removing VM ({name}) ID {openvpn_vm_id}")
             await send_rpc(ws, "vm.delete", {"id": openvpn_vm_id})
@@ -210,7 +213,7 @@ async def setupVIFsOpenVPN(ws, args, network_id):
         openvpn_vm_id = vm['id']
         if params['openvpn_vm_name'] == name:
             VIFs = vm['VIFs']
-            for i in range(int(params['num_teams']) + 1):  # +1 for organizational VIF
+            for i in range(int(params['add_vifs'])):
                 if openvpn_vm_id == openvpn_vm_id:
                     print(f"[DEBUG] Creating VIF on VM {openvpn_vm_id}")
                     response = await send_rpc(ws, "vm.createInterface", {"vm": openvpn_vm_id, "network": network_id})
@@ -220,6 +223,19 @@ async def setupVIFsOpenVPN(ws, args, network_id):
                         VIF_ids.append(VIF_id)
 
     return VIF_ids
+
+async def get_existing_teams(ws, args):
+    response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VM"}})
+    if "result" not in response:
+        return 0
+    max_team_number = 0
+    for vm in response["result"].values():
+        name = vm.get("name_label", "")
+        match = re.search(rf"{args.vm_prefix}-(\d+)", name)
+        if match:
+            max_team_number = max(max_team_number, int(match.group(1)))
+    return max_team_number
+
 
 if __name__ == "__main__":
     args = parse_arguments()

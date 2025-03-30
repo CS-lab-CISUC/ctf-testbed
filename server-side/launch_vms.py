@@ -30,13 +30,16 @@ team_ips = defaultdict(dict)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Launch VMs with specified parameters")
+    parser.add_argument("--base_dir", required=True, help="Base Directory")
     parser.add_argument("--env", required=True, help="Env")
     parser.add_argument("--prefix", required=True, help="Event Prefix")
+    parser.add_argument("--vm_prefix", required=True, help="VM Prefix")
     parser.add_argument("--team", required=True, help="Team Description")
     parser.add_argument("--network_uuid", required=True, help="Network UUID")
     parser.add_argument("--config", required=True, help="Path to config file")
     parser.add_argument("--subnet", required=True, help="Subnet prefix (e.g., 10.1.1)")
     parser.add_argument("--interface_name", required=True, help="Interface name (e.g., eth0)")
+    parser.add_argument("--gateway", required=False, help="Gateway to be used for the NIC")
     parser.add_argument("--commands", nargs='+', required=True, help="List of commands to execute on each VM")
     return parser.parse_args()
 
@@ -249,7 +252,7 @@ async def get_existing_teams(ws):
     max_team_number = 0
     for vm in response["result"].values():
         name = vm.get("name_label", "")
-        match = re.match(r"CTF-TEAM-(\d+)", name)
+        match = re.search(rf"{args.vm_prefix}-(\d+)", name)
         if match:
             max_team_number = max(max_team_number, int(match.group(1)))
     return max_team_number
@@ -264,14 +267,13 @@ async def process_challenge(args,config,challenge,idx):
             auth_response = await send_rpc(ws, "session.signInWithPassword",
                                            {"email": USERNAME, "password": PASSWORD})
 
-
             if not auth_response:
                 print(f"[Thread-{idx}] Authentication failed!")
                 return
-            vm_name = f"{args.prefix}-{args.team}-{challenge.get('name')}"
+            vm_name = f"{args.prefix}-{args.vm_prefix}-{args.team}-{challenge.get('name')}"
             template_uuid = challenge.get("template_uuid")
             static_ip = f"{args.subnet}.{idx+2}"
-            gateway = f"{args.subnet}.{1}"
+            gateway = f"{args.subnet}.{1}" if args.gateway is None else args.gateway
 
             vm_id = await create_vm(ws, vm_name, template_uuid)
             if not vm_id:
@@ -335,7 +337,7 @@ if __name__ == "__main__":
     # Guarda os IPs num ficheiro individual por equipa
     print(f"[DEBUG] Current working dir: {os.getcwd()}")
 
-    output_path = pathlib.Path(f"./vm_outputs/{args.team.replace(' ', '_').lower()}.json")
+    output_path = pathlib.Path(f"{args.base_dir}/vm_outputs/{args.team.replace(' ', '_').lower()}.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)  # <- cria o diretório ./tmp se necessário
 
     with open(output_path, "w") as f:
