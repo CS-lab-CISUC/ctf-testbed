@@ -32,6 +32,7 @@ VARS["EVENT_NAME"]="SHIFT_CTF"
 VARS["TEAM_VM_PREFIX"]="CTF-TEAM"
 VARS["POOL_NAME"]="cslab"
 VARS["NETWORK_NAME"]="${VARS["EVENT_NAME"]}-NETWORK"
+VARS["TEAMS_VM_WORKERS"]="${TEAMS_VM_WORKERS:-5}"
 
 # Loop through the associative array and create global variables using eval
 for key in "${!VARS[@]}"; do
@@ -458,8 +459,10 @@ setup_team_rules(){
 }
 
 setup_team_vms() {
-  echo "Creating teams vms in parallel"
+  echo "Creating team VMs with controlled parallelism..."
 
+  local max_workers="${VARS["TEAMS_VM_WORKERS"]:-5}"
+  local running_jobs=0
   declare -a pids=()
 
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
@@ -469,18 +472,25 @@ setup_team_vms() {
         create_team_vms "team" "$i"
         echo "[Team $i] Finished!"
       ) &
+
       pids+=($!)
+      ((running_jobs++))
+
+      if (( running_jobs >= max_workers )); then
+        wait -n 
+        ((running_jobs--))
+      fi
     fi
   done
 
-  echo "Waiting for all teams to finish..."
-
+  # Wait for all remaining jobs
   for pid in "${pids[@]}"; do
     wait "$pid"
   done
 
   echo "All teams created!"
 }
+
 
 
 
