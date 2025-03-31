@@ -453,7 +453,7 @@ setup_team_rules(){
   # Creating team vms
   echo "Creating teams rules"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-    if [ "$i" -ne 3 ] && [ "$i" -ne 9 ]; then
+    if [ "$i" -ne 3 ] && [ "$i" -ne 9 ] && [ "$i" -ne 11 ]; then
       create_team_rules "team" "$i" "0"
     fi
   done
@@ -467,7 +467,7 @@ setup_team_vms() {
   declare -a pids=()
 
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-    if [ "$i" -ne 3 ] && [ "$i" -ne 9 ]; then
+    if [ "$i" -ne 3 ] && [ "$i" -ne 9 ] && [ "$i" -ne 11 ]; then
       (
         echo "[Team $i] Starting..."
         create_team_vms "team" "$i"
