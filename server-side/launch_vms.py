@@ -14,6 +14,7 @@ from collections import defaultdict
 import pathlib
 import random
 
+
 def generate_random_mac():
     mac = [0x02, 0x00, 0x00,
            random.randint(0x00, 0x7f),
@@ -23,7 +24,6 @@ def generate_random_mac():
 
 
 lock = threading.Lock()
-
 
 team_ips = defaultdict(dict)
 
@@ -44,9 +44,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-
 async def send_rpc(ws, method, params):
-
     request_id = str(uuid.uuid4())
     print(f"[DEBUG] UUID:{request_id}")
     request = {"jsonrpc": "2.0", "method": method, "params": params, "id": request_id}
@@ -63,8 +61,6 @@ async def send_rpc(ws, method, params):
     return None
 
 
-
-
 async def create_vm(ws, vm_name, template_uuid):
     """Creates the VM with two VIFs (VIF0=Challenge Network, VIF1=SSH)"""
     params = {
@@ -73,8 +69,8 @@ async def create_vm(ws, vm_name, template_uuid):
         "template": template_uuid,
         "bootAfterCreate": True,
         "VIFs": [
-            {"network": NETWORK_UUID,"mac": generate_random_mac()},  # VIF0: Main network (eth0)
-            {"network": TEMP_NETWORK_UUID,"mac": generate_random_mac()}  # VIF1: Temporary SSH access
+            {"network": NETWORK_UUID, "mac": generate_random_mac()},  # VIF0: Main network (eth0)
+            {"network": TEMP_NETWORK_UUID, "mac": generate_random_mac()}  # VIF1: Temporary SSH access
         ]
     }
     response = await send_rpc(ws, "vm.create", params)
@@ -98,6 +94,7 @@ async def wait_for_vm_ready(ws, vm_id, max_retries=50, delay=20):
     print(f"[ERROR] VM {vm_id} did not fully boot in time.")
     return False
 
+
 async def get_vm_ip(ws, vm_id, max_retries=50, delay=20):
     for attempt in range(1, max_retries + 1):
         response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"id": vm_id}})
@@ -106,11 +103,12 @@ async def get_vm_ip(ws, vm_id, max_retries=50, delay=20):
             addresses = vm_info.get("addresses", {})
             for key, ip in addresses.items():
                 if "/ipv4/" in key:
-                    return ip 
+                    return ip
         await asyncio.sleep(delay)
     return None
 
-async def wait_for_ssh(ip,challenge , max_retries=50, delay=10):
+
+async def wait_for_ssh(ip, challenge, max_retries=50, delay=10):
     for attempt in range(1, max_retries + 1):
         try:
             async with asyncssh.connect(ip, username=challenge.get('user'), password=challenge.get('password'), known_hosts=None) as conn:
@@ -120,6 +118,7 @@ async def wait_for_ssh(ip,challenge , max_retries=50, delay=10):
             print(f"[DEBUG] Waiting for SSH on {ip}... Attempt {attempt}/{max_retries}")
             await asyncio.sleep(delay)
     return False
+
 
 def expect_prompt(shell, prompt='$', timeout=10):
     """Read from shell until we get the prompt or timeout."""
@@ -137,6 +136,7 @@ def expect_prompt(shell, prompt='$', timeout=10):
             break
     return buffer
 
+
 def send_command(shell, command, password=None):
     """Send command and handle sudo password if needed."""
     print(f"[DEBUG] Sending: {command}")
@@ -151,6 +151,7 @@ def send_command(shell, command, password=None):
         print(f"[DEBUG] Post-password Output:\n{output}")
 
     return output
+
 
 # Espera até que a interface 'Wired connection 1' tenha o IP estático atribuído
 def check_static_ip(ssh, expected_ip):
@@ -188,7 +189,7 @@ def execute_commands(VM_IP, commands, challenge):
             print(f"[DEBUG] Static IP {challenge['static_ip']} not yet applied. Retrying...")
             time.sleep(5)
         else:
-            
+
             print(f"[ERROR] Static IP {challenge['static_ip']} not detected after retries.")
             return False
 
@@ -202,17 +203,12 @@ def execute_commands(VM_IP, commands, challenge):
         return False
 
 
-
-
-
-
-
-async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, commands,challenge):
+async def configure_vm_network(ws, vm_id, static_ip, gateway, interface_name, commands, challenge):
     if not await wait_for_vm_ready(ws, vm_id):
         return
 
     temp_ip = await get_vm_ip(ws, vm_id)
-    if not temp_ip or not await wait_for_ssh(temp_ip,challenge):
+    if not temp_ip or not await wait_for_ssh(temp_ip, challenge):
         print(f"[ERROR] Failed to connect through ssh wait_for_ssh: {temp_ip} {challenge}")
         return
 
@@ -227,7 +223,7 @@ async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, com
         success = execute_commands(temp_ip, formatted_commands, challenge)
         if success:
             break
-        print(f"[WARN] Attempt {attempt+1} failed. Retrying configuration in 5s...")
+        print(f"[WARN] Attempt {attempt + 1} failed. Retrying configuration in 5s...")
         await asyncio.sleep(5)
     else:
         print(f"[ERROR] All retries failed for VM {vm_id}. Skipping VIF removal.")
@@ -245,10 +241,11 @@ async def configure_vm_network(ws, vm_id, static_ip,gateway, interface_name, com
 
     print(f"[ERROR] Could not find Temporary VIF for VM {vm_id}")
 
+
 async def get_existing_teams(ws):
     response = await send_rpc(ws, "xo.getAllObjects", {"filter": {"type": "VM"}})
     if "result" not in response:
-        return 0  
+        return 0
     max_team_number = 0
     for vm in response["result"].values():
         name = vm.get("name_label", "")
@@ -258,8 +255,7 @@ async def get_existing_teams(ws):
     return max_team_number
 
 
-async def process_challenge(args,config,challenge,idx):
-
+async def process_challenge(args, config, challenge, idx):
     """Handles challenge processing and VM creation asynchronously"""
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(XO_WS_URL) as ws:
@@ -272,7 +268,7 @@ async def process_challenge(args,config,challenge,idx):
                 return
             vm_name = f"{args.prefix}-{args.vm_prefix}-{args.team}-{challenge.get('name')}"
             template_uuid = challenge.get("template_uuid")
-            static_ip = f"{args.subnet}.{idx+2}"
+            static_ip = f"{args.subnet}.{idx + 2}"
             gateway = f"{args.subnet}.{1}" if args.gateway is None else args.gateway
 
             vm_id = await create_vm(ws, vm_name, template_uuid)
@@ -281,17 +277,16 @@ async def process_challenge(args,config,challenge,idx):
                 return
 
             print(f"[Thread-{idx}] [DEBUG] Created VM {vm_name} with ID {vm_id}")
-            
+
             team_key = f"{args.team}"
             with lock:
                 team_ips[team_key][challenge.get("name")] = static_ip
 
+            await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands, challenge)
 
-            await configure_vm_network(ws, vm_id, static_ip, gateway, args.interface_name, args.commands,challenge)
 
-def run_thread(args,config,challenge, idx):
-    asyncio.run(process_challenge(args,config,challenge, idx))
-
+def run_thread(args, config, challenge, idx):
+    asyncio.run(process_challenge(args, config, challenge, idx))
 
 
 if __name__ == "__main__":
@@ -319,25 +314,22 @@ if __name__ == "__main__":
     threads = []
 
     print(f"Runningn Challenges Threads {challenges}")
-     
+
     for idx, challenge in enumerate(challenges):
-        thread = threading.Thread(target=run_thread, args=(args,config,challenge, idx))
+        thread = threading.Thread(target=run_thread, args=(args, config, challenge, idx))
         threads.append(thread)
         thread.start()
 
     for thread in threads:
         thread.join()
 
-   
-
-
-
     print("[DEBUG] team_ips final:", json.dumps(team_ips, indent=2))  # debug obrigatório
 
     # Guarda os IPs num ficheiro individual por equipa
     print(f"[DEBUG] Current working dir: {os.getcwd()}")
 
-    output_path = pathlib.Path(f"{args.base_dir}/vm_outputs/{args.team.replace(' ', '_').lower()}.json")
+    team = args.team.replace(' ', '_').lower()
+    output_path = pathlib.Path(f"/etc/openvpn/client/team-{team}/team-{team}-challenges_ip.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)  # <- cria o diretório ./tmp se necessário
 
     with open(output_path, "w") as f:

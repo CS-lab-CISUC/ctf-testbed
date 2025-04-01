@@ -40,8 +40,7 @@ for key in "${!VARS[@]}"; do
     echo "$key='${VARS[$key]}'"
 done
 
-
-
+skippable_values=(3 9 11 16)
 
 # ----------------------------------------------
 # CleanUP: Removing any old OpenVPN installation
@@ -431,7 +430,7 @@ EOF
 
 setup_new_team(){
   load_network_uuid
-  
+
   # TODO: this function is to be used to create additional teams
   # note that this needs to identify the previous max team, and increment on it
   # works with flag -f setup_new_team
@@ -453,8 +452,16 @@ setup_team_rules(){
   # Creating team vms
   echo "Creating teams rules"
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-    if [ "$i" -ne 3 ] && [ "$i" -ne 9 ] && [ "$i" -ne 11 ]; then
-      create_team_rules "team" "$i" "0"
+    skip=false
+    for value in "${skippable_values[@]}"; do
+        if [ "$i" -eq "$value" ]; then
+            skip=true
+            break
+        fi
+    done
+
+    if [ "$skip" = false ]; then
+        create_team_rules "team" "$i" "0"
     fi
   done
 }
@@ -467,7 +474,15 @@ setup_team_vms() {
   declare -a pids=()
 
   for ((i = 1; i <= TEAMS_COUNT; i++)); do
-    if [ "$i" -ne 3 ] && [ "$i" -ne 9 ] && [ "$i" -ne 11 ]; then
+    skip=false
+    for value in "${skippable_values[@]}"; do
+        if [ "$i" -eq "$value" ]; then
+            skip=true
+            break
+        fi
+    done
+
+    if [ "$skip" = false ]; then
       (
         echo "[Team $i] Starting..."
         create_team_vms "team" "$i"
