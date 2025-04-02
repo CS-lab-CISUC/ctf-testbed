@@ -62,9 +62,10 @@ cleanup() {
   sudo tc qdisc del dev tun0 ingress
 
   sudo route -n | grep "^$CLIENT_MASK\."  # TODO: remove installed routes; careful with existing routes.., indeed this removes some routes that are not established afterwards, not sure why
-  sudo ip route add 10.11.0.0/24 dev enX0  # add route for DEI VPN clients
-  sudo ip route add 10.9.0.0/24 dev enX0  # add route for DEI VPN clients
   sudo route del -net 10.0.0.0 netmask 255.0.0.0
+  for i in "${skippable_values[@]}"; do
+    sudo ip route add 10.$i.0.0/16 dev enX0  # add route for DEI clients
+  done
   /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='cleanup' --prefix=$EVENT_NAME --vm_prefix=$TEAM_VM_PREFIX --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":"'"$TEAMS_COUNT"'","pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'","add_vifs":"'"$SERVER_ADDITIONAL_VIFS"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-cleanup.txt
 }
 
