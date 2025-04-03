@@ -11,12 +11,14 @@ VARS["EASY_RSA_DIR"]="${VARS["VPN_DIR"]}/easy-rsa"
 VARS["DB_FILE"]="${VARS["VPN_DIR"]}/vpn_users.db"
 VARS["CLIENTS_DIR"]="${VARS["VPN_DIR"]}/client"
 VARS["CLIENTS_CCD_DIR"]="${VARS["VPN_DIR"]}/ccd"
-VARS["SERVER_MASK"]="10.0.0"
+VARS["VPN_MASK"]="192"
+VARS["SERVER_MASK"]="${VARS["VPN_MASK"]}.0.0"
+VARS["SERVER_PORT"]="1194"
 VARS["SERVER_IP"]="${VARS["SERVER_MASK"]}.0"
 VARS["SERVER_TEAM_VIF_IP"]="${VARS["SERVER_MASK"]}.254"
-VARS["CLIENT_MASK"]="10"
 VARS["SERVER_HOST_IP"]="${VARS["SERVER_MASK"]}.1"
-VARS["SERVER_PUBLIC_IP"]="10.3.3.232"
+# VARS["SERVER_PUBLIC_IP"]="10.3.3.232"
+VARS["SERVER_PUBLIC_IP"]="193.136.212.157"
 VARS["TEAMS_COUNT"]="${TEAMS_COUNT:-2}"
 VARS["TEAMS_USERS_COUNT"]="${TEAMS_USERS_COUNT:-3}"
 VARS["SERVER_VPN_NAME"]="ctf_orch"
@@ -61,11 +63,12 @@ cleanup() {
   sudo tc qdisc del dev tun0 root
   sudo tc qdisc del dev tun0 ingress
 
-  sudo route -n | grep "^$CLIENT_MASK\."  # TODO: remove installed routes; careful with existing routes.., indeed this removes some routes that are not established afterwards, not sure why
-  sudo route del -net 10.0.0.0 netmask 255.0.0.0
-  for i in "${skippable_values[@]}"; do
-    sudo ip route add 10.$i.0.0/16 dev enX0  # add route for DEI clients
-  done
+  # sudo route -n | grep "^$VPN_MASK\."  # TODO: remove installed routes; careful with existing routes.., indeed this removes some routes that are not established afterwards, not sure why
+  # sudo route del -net 10.0.0.0 netmask 255.0.0.0 # not sure why this was necessary
+  # if we change to 192 this is not a problem
+#  for i in "${skippable_values[@]}"; do
+#    sudo ip route add 10.$i.0.0/16 dev enX0  # add route for DEI clients
+#  done
   /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='cleanup' --prefix=$EVENT_NAME --vm_prefix=$TEAM_VM_PREFIX --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":"'"$TEAMS_COUNT"'","pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'","add_vifs":"'"$SERVER_ADDITIONAL_VIFS"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-cleanup.txt
 }
 
@@ -104,12 +107,12 @@ setup_openvpn() {
   chmod +x $INITIAL_DIR/$TC_FILE
   sudo cp $INITIAL_DIR/$TC_FILE $VPN_DIR
 
-  local subnet_org_base="$CLIENT_MASK.0.1"
+  local subnet_org_base="$VPN_MASK.0.1"
   local subnet_org="$subnet_org_base.0"
   local subnet_org_w_mask="$subnet_org/24"
 
   cat > $VPN_DIR/server.conf <<EOF
-port 1194
+port $SERVER_PORT
 proto udp
 dev tun
 ca ca.crt
@@ -152,7 +155,7 @@ setup_routes_firewall_network(){
   # Configuring firewall rules
   echo "Configuring firewall rules..."
   sudo iptables -P FORWARD DROP  # REJECT by default
-  sudo iptables -A INPUT -p udp --dport 1194 -j ACCEPT
+  sudo iptables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT
   sudo iptables -A FORWARD -s $SERVER_IP/24 -j ACCEPT
 
   /home/cslab/miniconda3/bin/python $INITIAL_DIR/setup_xo.py --tmp="$INITIAL_DIR/tmp" --env="$INITIAL_DIR/.env" --action='setup' --prefix=$EVENT_NAME --vm_prefix=$TEAM_VM_PREFIX --params='{"openvpn_vm_name":"'"$SERVER_VPN_NAME"'","num_teams":'$TEAMS_COUNT',"pool_name":"'"$POOL_NAME"'","network_name":"'"$NETWORK_NAME"'","add_vifs":"'"$SERVER_ADDITIONAL_VIFS"'"}' 2>&1 > $INITIAL_DIR/tmp/setup_xo-setup.txt
@@ -163,7 +166,7 @@ setup_routes_firewall_network(){
 
 
   # setup org subnet
-  local subnet_org_base="$CLIENT_MASK.0.1"
+  local subnet_org_base="$VPN_MASK.0.1"
   local subnet_org="$subnet_org_base.0"
   local subnet_org_w_mask="$subnet_org/24"
 
@@ -201,7 +204,7 @@ create_user() {
     local client_ip="$subnet_vpn_client_base.$j"
     local team_folder="$CLIENTS_DIR/$1-$2"
 
-    local subnet_org_base="$CLIENT_MASK.0.1"
+    local subnet_org_base="$VPN_MASK.0.1"
     local subnet_org="$subnet_org_base.0"
     local subnet_org_w_mask="$subnet_org/24"
 
@@ -215,7 +218,7 @@ create_user() {
 client
 dev tun
 proto udp
-remote $SERVER_PUBLIC_IP 1194
+remote $SERVER_PUBLIC_IP $SERVER_PORT
 resolv-retry infinite
 nobind
 persist-key
@@ -290,7 +293,7 @@ EOF
 # Create Organization VMS
 # ----------------------------------------------
 setup_organization_vms(){
-    local subnet_org_base="$CLIENT_MASK.0.1"
+    local subnet_org_base="$VPN_MASK.0.1"
 
 : <<EOF
 EOF
@@ -309,16 +312,13 @@ EOF
                 "echo 'Command started...' | sudo tee /tmp/command_config.log" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.addresses {static_ip}/24 ipv4.method manual" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.gateway {gateway}" \
-                "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '10.0.0.0/24 {gateway}'" \
+                "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '$VPN_MASK.0.0.0/24 {gateway}'" \
                 "sudo nmcli con up 'Wired connection 1'" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.dns '$(resolvectl status $SERVER_OUT_INTERFACE | grep 'Current DNS Server:' | awk '{print $NF}')'"\
                 "sudo systemctl restart NetworkManager" \
                 "echo 'Network configured successfully'")" |  sudo tee $INITIAL_DIR/tmp/setup_organization_vms_network_config.log
 
 
-                # f"ip addr add {STATIC_IP}/24 dev eth0",
-                # f"ip route add {GATEWAY} dev eth0",
-                # "ip route add 10.1.0.0/24 via 10.1.1.1 dev eth0",
 }
 
 
@@ -329,16 +329,16 @@ EOF
 # ----------------------------------------------
 create_team_rules() {
     echo "Creating team rules $2"
-    local subnet_vpn_clients_base="$CLIENT_MASK.$2.0"
+    local subnet_vpn_clients_base="$VPN_MASK.$2.0"
     local subnet_vpn_clients="$subnet_vpn_clients_base.0"
     local subnet_vpn_clients_w_mask="$subnet_vpn_clients/24"
-    local subnet_ch_base="$CLIENT_MASK.$2.1"
+    local subnet_ch_base="$VPN_MASK.$2.1"
     local subnet_ch="$subnet_ch_base.0"
     local subnet_ch_w_mask="$subnet_ch/24"
     local j
     cd $EASY_RSA_DIR
 
-    local subnet_org_base="$CLIENT_MASK.0.1"
+    local subnet_org_base="$VPN_MASK.0.1"
     local subnet_org="$subnet_org_base.0"
     local subnet_org_w_mask="$subnet_org/24"
 
@@ -358,20 +358,20 @@ EOF
         if [ "$y" = "$2" ]; then
             continue
         fi
-        local o_subnet_vpn_clients_base="$CLIENT_MASK.$y.0"
+        local o_subnet_vpn_clients_base="$VPN_MASK.$y.0"
         local o_subnet_vpn_clients="$o_subnet_vpn_clients_base.0"
         local o_subnet_vpn_clients_w_mask="$o_subnet_vpn_clients/24"
-        local o_subnet_ch_base="$CLIENT_MASK.$y.1"
+        local o_subnet_ch_base="$VPN_MASK.$y.1"
         local o_subnet_ch="$o_subnet_ch_base.0"
         local o_subnet_ch_w_mask="$o_subnet_ch/24"
 
         # NOTE: this is not strictly necessary, as iptables policy is drop; however, this overwrites
         # other range IPs that could be accessible through $SERVER_OUT_INTERFACE
         sudo iptables -I FORWARD 1 -s $subnet_vpn_clients_w_mask -d "$o_subnet_vpn_clients/16" -j REJECT
-        # sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -d "$o_subnet_ch/16" -j REJECT # /16 covers 10.X.0.0 and 10.X.1.0
+        # sudo iptables -A FORWARD -s $subnet_vpn_clients_w_mask -d "$o_subnet_ch/16" -j REJECT # /16 covers $VPN_MASK.X.0.0 and $VPN_MASK.X.1.0
 
         sudo iptables -I FORWARD 1 -s $subnet_ch_w_mask -d "$o_subnet_vpn_clients/16" -j REJECT
-        # sudo iptables -A FORWARD -s $subnet_ch_w_mask -d "$o_subnet_ch/16" -j REJECT  # /16 covers 10.X.0.0 and 10.X.1.0
+        # sudo iptables -A FORWARD -s $subnet_ch_w_mask -d "$o_subnet_ch/16" -j REJECT  # /16 covers $VPN_MASK.X.0.0 and $VPN_MASK.X.1.0
     done
 
     # Set iptables for VPN clients subnet and outbound traffic
@@ -398,7 +398,7 @@ EOF
 }
 
 create_team_vms(){
-    local subnet_ch_base="$CLIENT_MASK.$2.1"
+    local subnet_ch_base="$VPN_MASK.$2.1"
 : <<EOF
 EOF
     echo "Initializing team $2 VMs (might take a while)"
@@ -418,7 +418,7 @@ EOF
                 "sudo nmcli con mod 'Wired connection 1' ipv4.addresses {static_ip}/24 ipv4.method manual" \
                 "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '$SERVER_TEAM_VIF_IP/32'" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.gateway {gateway}" \
-                "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '10.$2.0.0/24 {gateway}'" \
+                "sudo nmcli con mod 'Wired connection 1' +ipv4.routes '$VPN_MASK.$2.0.0/24 {gateway}'" \
                 "sudo nmcli con up 'Wired connection 1'" \
                 "sudo nmcli con mod 'Wired connection 1' ipv4.dns '$(resolvectl status $SERVER_OUT_INTERFACE | grep 'Current DNS Server:' | awk '{print $NF}')'"\
                 "sudo systemctl restart NetworkManager" \
@@ -426,7 +426,7 @@ EOF
 
                 # f"ip addr add {STATIC_IP}/24 dev eth0",
                 # f"ip route add {GATEWAY} dev eth0",
-                # "ip route add 10.1.0.0/24 via 10.1.1.1 dev eth0",
+                # "ip route add $VPN_MASK.1.0.0/24 via $VPN_MASK.1.1.1 dev eth0",
 }
 
 setup_new_team(){
